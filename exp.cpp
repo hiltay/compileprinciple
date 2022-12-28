@@ -6,6 +6,7 @@
 
 using namespace std;
 // see:https://blog.csdn.net/Ederick/article/details/8558672
+// see:https://juejin.cn/post/7123210350484258823
 /*********************正则转NFA**********************************************/
 unsigned N, M;					//分别表示NFA和DFA的状态数
 string s;						//正则表达式
