@@ -172,11 +172,12 @@ public:
     NFA construct(string re) {
         // 清空NFA
         clear_NFA();
-        convert_postfix_exp(re);
-        for (int i = 0; i < re.size(); i++) {
-            char current_char = re[i];
-            cout << "current char:" << re[i] << endl;
-            if (isalpha(re[i])) {
+        string postfix_exp = convert_postfix_exp(re);
+        // todo see:https://segmentfault.com/a/1190000018258326
+        for (int i = 0; i < postfix_exp.size(); i++) {
+            char current_char = postfix_exp[i];
+            cout << "current char:" << current_char << endl;
+            if (isalpha(current_char)) {
                 // 如果是字符，构建子NFA
 
             }
@@ -189,7 +190,7 @@ public:
 int main() {
     // 正则表达式支持：字母、数字、下划线，特殊字符. + ? *，小括号()
     // b&b+
-    string re = "a.*b?c";
+    string re = "gaho.x";
 //    string re = "(a|b)*abb";
 
 
