@@ -10,15 +10,16 @@ typedef struct NFA {
     vector<int> table[200][5];
 } NFA;
 
-typedef struct Node {
-    char character;
-    Node *left;
-    Node *right;
+typedef struct EdgeNode {
+    int adjvex;
+    char sign;
+    EdgeNode *next;
+} EdgeNode;
 
-    explicit Node(char c) : character(c), left(nullptr), right(nullptr) {};
-
-    explicit Node(char c, Node *left_child, Node *right_child) : character(c), left(left_child), right(right_child) {};
-} Node;
+typedef struct VertexNode {
+    int state; // 状态号
+    EdgeNode *next_edge;
+} VertexNode;
 
 class NFATools {
 private:
@@ -167,18 +168,31 @@ private:
         return postfix_exp;
     }
 
+    void basic_char_node(){
+
+    }
+
 public:
 
     NFA construct(string re) {
         // 清空NFA
         clear_NFA();
+        // 得到后缀表达式
         string postfix_exp = convert_postfix_exp(re);
+        // 确定最大状态数，以分配邻接表内存
+        auto max_state_num = postfix_exp.size() * 2;
+        VertexNode NFA[max_state_num];
+        // 辅助栈
+
         // todo see:https://segmentfault.com/a/1190000018258326
         for (int i = 0; i < postfix_exp.size(); i++) {
             char current_char = postfix_exp[i];
             cout << "current char:" << current_char << endl;
-            if (isalpha(current_char)) {
+            if (is_character(current_char)) {
                 // 如果是字符，构建子NFA
+                EdgeNode edge = {.adjvex=counter+1,.sign=current_char,.next=nullptr,};
+                VertexNode basic_node_start={.state=counter++,.next_edge=&edge};
+                VertexNode basic_node_end={.state=counter++,.next_edge=nullptr};
 
             }
         }
@@ -190,11 +204,12 @@ public:
 int main() {
     // 正则表达式支持：字母、数字、下划线，特殊字符. + ? *，小括号()
     // b&b+
-    string re = "gaho.x";
-//    string re = "(a|b)*abb";
+    string re = "(a|b)*abb";
 
 
     NFATools tools = NFATools();
     tools.construct(re);
     return 0;
+
+    // leetcode:https://leetcode.cn/problems/Valid-Number/
 }
