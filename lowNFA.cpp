@@ -181,10 +181,8 @@ public:
         string postfix_exp = convert_postfix_exp(re);
         // 确定最大状态数，以分配邻接表内存
         auto max_state_num = postfix_exp.size() * 2;
-//        VertexNode nodes[max_state_num];
-//        NFA nfa = {Graph:nodes,.start=0,.end=0};
+        // 构建能容纳字符长度的NFA
         NFA *nfa = (NFA *) malloc(sizeof(struct NFA) + max_state_num * sizeof(VertexNode));
-        int start_index, end_index;
         // 辅助栈，保存两个节点的索引和边的方向
         stack<pair<int, int>> assist;
 
@@ -201,8 +199,6 @@ public:
                 // 添加到图中
                 nfa->Graph[basic_node_start.index] = basic_node_start;
                 nfa->Graph[basic_node_end.index] = basic_node_end;
-//                start_index = basic_node_start.index;
-//                end_index = basic_node_end.index;
                 assist.push(make_pair(basic_node_start.index, basic_node_end.index));
             } else if (current_char == '|') {
                 // | 的构建规则：如果为 |，弹出栈内两个元素 N(s)、N(t)，构建 N(r) 将其入栈（r = s|t）
@@ -223,8 +219,6 @@ public:
                 // 添加到图中
                 nfa->Graph[basic_node_start.index] = basic_node_start;
                 nfa->Graph[basic_node_end.index] = basic_node_end;
-//                start_index = basic_node_start.index;
-//                end_index = basic_node_end.index;
                 assist.push(make_pair(basic_node_start.index, basic_node_end.index));
             } else if (current_char == '*') {
                 // * 的构建规则：如果为 *，弹出栈内一个元素 N(s)，构建 N(r) 将其入栈（r = s*）
@@ -242,8 +236,6 @@ public:
                 // 添加到图中
                 nfa->Graph[basic_node_start.index] = basic_node_start;
                 nfa->Graph[basic_node_end.index] = basic_node_end;
-//                start_index = basic_node_start.index;
-//                end_index = basic_node_end.index;
                 assist.push(make_pair(basic_node_start.index, basic_node_end.index));
             } else if (current_char == '&') {
                 // & 的构建规则：如果为 &，弹出栈内两个元素 N(s)、N(t)，构建 N(r) 将其入栈（r = st）
