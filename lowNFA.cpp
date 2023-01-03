@@ -11,9 +11,11 @@ typedef struct EdgeNode {
     char data;
     EdgeNode *next;
 
-    EdgeNode(char data) : adjvex(0), data(data),next(nullptr){};
-    EdgeNode(int adjvex,char data) : adjvex(adjvex), data(data),next(nullptr){};
-    EdgeNode(int adjvex,char data,EdgeNode* next) : adjvex(adjvex), data(data),next(next){};
+    EdgeNode(char data) : adjvex(0), data(data), next(nullptr) {};
+
+    EdgeNode(int adjvex, char data) : adjvex(adjvex), data(data), next(nullptr) {};
+
+    EdgeNode(int adjvex, char data, EdgeNode *next) : adjvex(adjvex), data(data), next(next) {};
 } EdgeNode;
 
 typedef struct VertexNode {
@@ -192,16 +194,16 @@ public:
             cout << "current char:" << current_char << endl;
             if (is_character(current_char)) {
                 // 如果是字符，构建子NFA，并将其NFA的节点索引入栈
-                EdgeNode* edge = new EdgeNode(counter+1,current_char);
+                EdgeNode *edge = new EdgeNode(counter + 1, current_char);
                 VertexNode basic_node_start = {.index=counter++, .next_edge=edge};
                 VertexNode basic_node_end = {.index=counter++, .next_edge=nullptr};
 
                 // 添加到图中
                 nfa->Graph[basic_node_start.index] = basic_node_start;
                 nfa->Graph[basic_node_end.index] = basic_node_end;
-                start_index = basic_node_start.index;
-                end_index = basic_node_end.index;
-                assist.push(make_pair(start_index, end_index));
+//                start_index = basic_node_start.index;
+//                end_index = basic_node_end.index;
+                assist.push(make_pair(basic_node_start.index, basic_node_end.index));
             } else if (current_char == '|') {
                 // | 的构建规则：如果为 |，弹出栈内两个元素 N(s)、N(t)，构建 N(r) 将其入栈（r = s|t）
                 auto right_opt = assist.top();
@@ -209,43 +211,50 @@ public:
                 auto left_opt = assist.top();
                 assist.pop();
                 // 新节点连接两个旧节点的头
-                EdgeNode* edge1 = new EdgeNode(left_opt.first,'^');
-                EdgeNode* edge2 = new EdgeNode(right_opt.first,'^',edge1);
+                EdgeNode *edge1 = new EdgeNode(left_opt.first, '^');
+                EdgeNode *edge2 = new EdgeNode(right_opt.first, '^', edge1);
                 VertexNode basic_node_start = {.index=counter++, .next_edge=edge2};
                 // 创建新节点
                 VertexNode basic_node_end = {.index=counter++, .next_edge=nullptr};
                 // 两个旧节点尾部连接新节点
-                nfa->Graph[left_opt.second].next_edge = new EdgeNode(basic_node_end.index,'^');
-                nfa->Graph[right_opt.second].next_edge = new EdgeNode(basic_node_end.index,'^');
+                nfa->Graph[left_opt.second].next_edge = new EdgeNode(basic_node_end.index, '^');
+                nfa->Graph[right_opt.second].next_edge = new EdgeNode(basic_node_end.index, '^');
 
                 // 添加到图中
                 nfa->Graph[basic_node_start.index] = basic_node_start;
                 nfa->Graph[basic_node_end.index] = basic_node_end;
-                start_index = basic_node_start.index;
-                end_index = basic_node_end.index;
-                assist.push(make_pair(start_index, end_index));
-            }else if (current_char == '*') {
+//                start_index = basic_node_start.index;
+//                end_index = basic_node_end.index;
+                assist.push(make_pair(basic_node_start.index, basic_node_end.index));
+            } else if (current_char == '*') {
                 // * 的构建规则：如果为 *，弹出栈内一个元素 N(s)，构建 N(r) 将其入栈（r = s*）
                 auto opt = assist.top();
                 assist.pop();
-                EdgeNode* edge1 = new EdgeNode(opt.first,'^');
-                EdgeNode* edge2 = new EdgeNode(counter+1,'^',edge1);
-                VertexNode basic_node_start = {.index=counter++, .next_edge=edge2};
+                EdgeNode *edge1 = new EdgeNode(opt.first, '^');
+                VertexNode basic_node_start = {.index=counter++, .next_edge=nullptr};
                 VertexNode basic_node_end = {.index=counter++, .next_edge=nullptr};
-                nfa->Graph[opt.second].next_edge = new EdgeNode(basic_node_end.index,'^');
+                EdgeNode *edge2 = new EdgeNode(basic_node_end.index, '^', edge1);
+                basic_node_start.next_edge = edge2;
+                // 修改图
+                nfa->Graph[opt.second].next_edge = new EdgeNode(basic_node_end.index, '^',
+                                                                new EdgeNode(basic_node_start.index, '^'));
 
                 // 添加到图中
                 nfa->Graph[basic_node_start.index] = basic_node_start;
                 nfa->Graph[basic_node_end.index] = basic_node_end;
-                start_index = basic_node_start.index;
-                end_index = basic_node_end.index;
-                assist.push(make_pair(start_index, end_index));
-            }else if(current_char == '&'){
+//                start_index = basic_node_start.index;
+//                end_index = basic_node_end.index;
+                assist.push(make_pair(basic_node_start.index, basic_node_end.index));
+            } else if (current_char == '&') {
                 // & 的构建规则：如果为 &，弹出栈内两个元素 N(s)、N(t)，构建 N(r) 将其入栈（r = st）
                 auto right_opt = assist.top();
                 assist.pop();
                 auto left_opt = assist.top();
                 assist.pop();
+                // 两个旧节点尾部连接新节点
+                // 添加到图中
+                nfa->Graph[left_opt.second].next_edge = new EdgeNode(right_opt.first, '^');
+                assist.push(make_pair(left_opt.first, right_opt.second));
             }
         }
         return nfa;
