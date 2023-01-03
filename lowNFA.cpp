@@ -5,27 +5,31 @@
 #include <algorithm>
 
 using namespace std;
-typedef struct NFA {
-    // abcd ε
-    vector<int> table[200][5];
-} NFA;
 
 typedef struct EdgeNode {
     int adjvex;
-    char sign;
+    char data;
     EdgeNode *next;
+
+    EdgeNode(char data) : adjvex(0), data(data),next(nullptr){};
+    EdgeNode(int adjvex,char data) : adjvex(adjvex), data(data),next(nullptr){};
+    EdgeNode(int adjvex,char data,EdgeNode* next) : adjvex(adjvex), data(data),next(next){};
 } EdgeNode;
 
 typedef struct VertexNode {
-    int state; // 状态号
+    int index; // 索引号
     EdgeNode *next_edge;
 } VertexNode;
+
+typedef struct NFA {
+    int start, end;
+    VertexNode Graph[];
+} NFA;
 
 class NFATools {
 private:
     // 自增标号
     int counter = 0;
-    NFA nfa;
 
     bool is_character(char c) {
         // 数字字母下划线被认为是普通字符
@@ -70,14 +74,6 @@ private:
                 break;
         }
         return pri;
-    }
-
-    void clear_NFA() {
-        for (int i = 0; i < 200; i++) {
-            for (int j = 0; j < 5; j++)
-                nfa.table[i][j].clear();
-
-        }
     }
 
 
@@ -168,31 +164,62 @@ private:
         return postfix_exp;
     }
 
-    void basic_char_node(){
+    void basic_char_node() {
 
     }
 
 public:
 
-    NFA construct(string re) {
-        // 清空NFA
-        clear_NFA();
+    NFA *construct(string re) {
         // 得到后缀表达式
         string postfix_exp = convert_postfix_exp(re);
         // 确定最大状态数，以分配邻接表内存
         auto max_state_num = postfix_exp.size() * 2;
-        VertexNode NFA[max_state_num];
-        // 辅助栈
+//        VertexNode nodes[max_state_num];
+//        NFA nfa = {Graph:nodes,.start=0,.end=0};
+        NFA *nfa = (NFA *) malloc(sizeof(struct NFA) + max_state_num * sizeof(VertexNode));
+        int start_index, end_index;
+        // 辅助栈，保存两个节点的索引和边的方向
+        stack<pair<int, int>> assist;
 
         // todo see:https://segmentfault.com/a/1190000018258326
         for (int i = 0; i < postfix_exp.size(); i++) {
             char current_char = postfix_exp[i];
             cout << "current char:" << current_char << endl;
             if (is_character(current_char)) {
-                // 如果是字符，构建子NFA
-                EdgeNode edge = {.adjvex=counter+1,.sign=current_char,.next=nullptr,};
-                VertexNode basic_node_start={.state=counter++,.next_edge=&edge};
-                VertexNode basic_node_end={.state=counter++,.next_edge=nullptr};
+                // 如果是字符，构建子NFA，并将其NFA的节点索引入栈
+                EdgeNode* edge = new EdgeNode(counter+1,current_char);
+                VertexNode basic_node_start = {.index=counter++, .next_edge=edge};
+                VertexNode basic_node_end = {.index=counter++, .next_edge=nullptr};
+                start_index = basic_node_start.index;
+                end_index = basic_node_end.index;
+                nfa->Graph[start_index] = basic_node_start;
+                nfa->Graph[end_index] = basic_node_end;
+                assist.push(make_pair(start_index, end_index));
+            } else if (current_char == '|') {
+                // | 的构建规则：如果为 |，弹出栈内两个元素 N(s)、N(t)，构建 N(r) 将其入栈（r = s|t）
+                auto right_opt = assist.top();
+                assist.pop();
+                auto left_opt = assist.top();
+                assist.pop();
+                // 新节点连接两个旧节点的头
+                EdgeNode* edge1 = new EdgeNode(left_opt.first,'^');
+                EdgeNode* edge2 = new EdgeNode(right_opt.first,'^',edge1);
+                VertexNode basic_node_start = {.index=counter++, .next_edge=edge2};
+                // 创建新节点
+                VertexNode basic_node_end = {.index=counter++, .next_edge=nullptr};
+                // 两个旧节点尾部连接新节点
+                nfa->Graph[left_opt.second].next_edge = new EdgeNode(basic_node_end.index,'^');
+                nfa->Graph[right_opt.second].next_edge = new EdgeNode(basic_node_end.index,'^');
+                nfa->Graph[basic_node_start.index] = basic_node_start;
+                nfa->Graph[basic_node_end.index] = basic_node_end;
+                start_index = basic_node_start.index;
+                end_index = basic_node_end.index;
+                assist.push(make_pair(start_index, end_index));
+            }else if (current_char == '*') {
+                // * 的构建规则：如果为 *，弹出栈内一个元素 N(s)，构建 N(r) 将其入栈（r = s*）
+                auto opt = assist.top();
+                assist.pop();
 
             }
         }
@@ -202,7 +229,7 @@ public:
 };
 
 int main() {
-    // 正则表达式支持：字母、数字、下划线，特殊字符. + ? *，小括号()
+    // 正则表达式支持：字母、数字、下划线，特殊字符. + ? * | ，小括号()
     // b&b+
     string re = "(a|b)*abb";
 
