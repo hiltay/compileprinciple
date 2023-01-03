@@ -164,9 +164,13 @@ private:
         return postfix_exp;
     }
 
-    void basic_char_node() {
-
-    }
+//    void update_graph(NFA* nfa,VertexNode basic_node_start,VertexNode basic_node_end,int * start_index,int * end_index,stack<pair<int, int>> assist) {
+//        nfa->Graph[basic_node_start.index] = basic_node_start;
+//        nfa->Graph[basic_node_end.index] = basic_node_end;
+//        start_index = &basic_node_start.index;
+//        end_index = &basic_node_end.index;
+//        assist.push(make_pair(start_index, end_index));
+//    }
 
 public:
 
@@ -191,10 +195,12 @@ public:
                 EdgeNode* edge = new EdgeNode(counter+1,current_char);
                 VertexNode basic_node_start = {.index=counter++, .next_edge=edge};
                 VertexNode basic_node_end = {.index=counter++, .next_edge=nullptr};
+
+                // 添加到图中
+                nfa->Graph[basic_node_start.index] = basic_node_start;
+                nfa->Graph[basic_node_end.index] = basic_node_end;
                 start_index = basic_node_start.index;
                 end_index = basic_node_end.index;
-                nfa->Graph[start_index] = basic_node_start;
-                nfa->Graph[end_index] = basic_node_end;
                 assist.push(make_pair(start_index, end_index));
             } else if (current_char == '|') {
                 // | 的构建规则：如果为 |，弹出栈内两个元素 N(s)、N(t)，构建 N(r) 将其入栈（r = s|t）
@@ -211,6 +217,8 @@ public:
                 // 两个旧节点尾部连接新节点
                 nfa->Graph[left_opt.second].next_edge = new EdgeNode(basic_node_end.index,'^');
                 nfa->Graph[right_opt.second].next_edge = new EdgeNode(basic_node_end.index,'^');
+
+                // 添加到图中
                 nfa->Graph[basic_node_start.index] = basic_node_start;
                 nfa->Graph[basic_node_end.index] = basic_node_end;
                 start_index = basic_node_start.index;
@@ -220,7 +228,24 @@ public:
                 // * 的构建规则：如果为 *，弹出栈内一个元素 N(s)，构建 N(r) 将其入栈（r = s*）
                 auto opt = assist.top();
                 assist.pop();
+                EdgeNode* edge1 = new EdgeNode(opt.first,'^');
+                EdgeNode* edge2 = new EdgeNode(counter+1,'^',edge1);
+                VertexNode basic_node_start = {.index=counter++, .next_edge=edge2};
+                VertexNode basic_node_end = {.index=counter++, .next_edge=nullptr};
+                nfa->Graph[opt.second].next_edge = new EdgeNode(basic_node_end.index,'^');
 
+                // 添加到图中
+                nfa->Graph[basic_node_start.index] = basic_node_start;
+                nfa->Graph[basic_node_end.index] = basic_node_end;
+                start_index = basic_node_start.index;
+                end_index = basic_node_end.index;
+                assist.push(make_pair(start_index, end_index));
+            }else if(current_char == '&'){
+                // & 的构建规则：如果为 &，弹出栈内两个元素 N(s)、N(t)，构建 N(r) 将其入栈（r = st）
+                auto right_opt = assist.top();
+                assist.pop();
+                auto left_opt = assist.top();
+                assist.pop();
             }
         }
         return nfa;
