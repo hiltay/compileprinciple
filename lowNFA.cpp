@@ -83,8 +83,9 @@ private:
     }
 
 
-    pair<string, set<char>> convert_postfix_exp(string infix_exp) {
+    pair<string, set<char>> convert_postfix_exp(const string &infix) {
         // see:https://zh.m.wikipedia.org/zh-hans/%E8%B0%83%E5%BA%A6%E5%9C%BA%E7%AE%97%E6%B3%95
+        string infix_exp = infix;
         // 输出结果为后缀表达式
         string postfix_exp;
         // 辅助栈，存放操作符
@@ -93,17 +94,20 @@ private:
         char cur_elem;
         // 保存这个正则表达式输入中出现的所有字符
         set<char> seen_char;
-
+        // 记录上一个字符，初始为-1
+        char last_char = -1;
+        // 记录最近一次左括号的索引位置，初始为-1
+        int last_open_parenthesis_index = -1;
         for (int i = 0; i < infix_exp.size(); i++) {
             cur_elem = infix_exp[i];
             // 字符数字下划线
             if (is_character(cur_elem)) {
                 // 添加到set，用于后续展示nfa使用，和构造后缀表达式的逻辑无关
                 seen_char.insert(cur_elem);
-                if (i != 0) {
+                if (last_char != -1) {
                     // 当前为普通字符，且非首个字符，查看上一个字符是否为普通字符或者除了左括号以外的特殊字符
                     // 例如：aa )a *a +a .a ?a
-                    char last_char = infix_exp[i - 1];
+//                    char last_char = infix_exp[i - 1];
                     if (is_character(last_char) ||
                         (is_special_character(last_char) && priority(last_char) >= priority('&')) ||
                         is_close_parenthesis(last_char)) {
@@ -125,8 +129,8 @@ private:
             } else if (is_open_parenthesis(cur_elem)) {
                 // 在入栈之前检查上一个字符是否为普通字符或者除了左括号以外的特殊字符
                 // 例如： a( *( )(
-                if (i != 0) {
-                    char last_char = infix_exp[i - 1];
+                if (last_char != -1) {
+//                    char last_char = infix_exp[i - 1];
                     if (is_character(last_char) || is_special_character(last_char) || is_close_parenthesis(last_char)) {
                         // 加入连接符 &
                         while (!operators.empty() && priority('&') <= priority(operators.top())) {
@@ -141,6 +145,8 @@ private:
                 }
                 // 左括号直接入栈
                 operators.push(cur_elem);
+                // 当前的左括号索引为最近一次遇见左括号
+                last_open_parenthesis_index = i;
             } else if (is_close_parenthesis(cur_elem)) {
                 // 右括号
                 while (!is_open_parenthesis(operators.top())) {
@@ -156,7 +162,33 @@ private:
                 // 通配符.在展示时视作普通字符，所以需要添加到set，用于后续展示nfa使用，和构造后缀表达式的逻辑无关
                 if (cur_elem == '.')
                     seen_char.insert(cur_elem);
-                // 特殊运算符*.?+|
+                if (cur_elem == '+') {
+                    // 对于+，有两种情况：
+                    if (is_character(last_char) || last_char == '.') {
+                        // 如果上一个字符是普通字符或者通配符.
+                        // 即：.+ a+ b+ c+ 这种情况
+                        // 我们将其看做..* aa* bb* cc*，因此，我们的做法是
+                        // 1、将当前的字符+替换为*
+                        infix_exp[i] = '*';
+                        // 2、将当前索引回退到上一个字符之前
+                        // 上一个字符此时不变即可
+                        i -= 2;
+                        continue;
+                    } else if (last_char == ')') {
+                        // 如果上一个字符是右括号，则我们需要将指针回退到这个右括号对应匹配的左括号之前
+                        // 由于)后面紧接着就是+，所以可以确定刚才从operators出栈的就是最近的括号
+                        // 将当前的字符+替换为*
+                        infix_exp[i] = '*';
+                        // 因此可以直接将索引回退到最近的左括号之前
+                        i = last_open_parenthesis_index - 1;
+                        // 同时将上一个字符重新设置
+                        last_char = ')';
+                        continue;
+                    }
+
+                }
+
+                // 特殊运算符.*?|
                 while (!operators.empty() && priority(cur_elem) <= priority(operators.top())) {
                     // 比较当前字符和运算符栈顶字符的优先级，如果当前字符的优先级小
                     // 则取出栈顶的运算符，添加到输出中
@@ -167,6 +199,7 @@ private:
                 // 将当前运算符压入栈中
                 operators.push(cur_elem);
             }
+            last_char = cur_elem;
 
         }
         // 字符串扫描完毕
@@ -177,13 +210,13 @@ private:
             postfix_exp += opt;
         }
         // 至此得到后缀表达式
-        cout << "输入的中缀表达式：" << infix_exp << "\n对应的后缀表达式：" << postfix_exp << endl;
+        cout << "输入的中缀表达式：" << infix << "\n对应的后缀表达式：" << postfix_exp << endl;
         return make_pair(postfix_exp, seen_char);
     }
 
 public:
 
-    NFA *construct(string re) {
+    NFA *construct(const string &re) {
         // 得到后缀表达式
         pair<string, set<char>> result = convert_postfix_exp(re);
         string postfix_exp = result.first;
@@ -268,20 +301,6 @@ public:
                     current_edge = current_edge->next;
                 }
                 current_edge->next = edge;
-            } else if (current_char == '+') {
-                // + 的构建规则：如果为 +，弹出栈内一个元素 N(s)，构建 N(r) 将其入栈（r = s+）
-                auto opt = assist.top();
-                // 同样不需要出栈，需要添加两条边（首尾互相连接）
-                EdgeNode *edge = new EdgeNode(opt.second, '^');
-                // 添加一条边，插入到邻接表链表末尾
-                EdgeNode *current_edge = nfa->Graph[opt.first].next_edge;
-                while (current_edge->next != nullptr) {
-                    current_edge = current_edge->next;
-                }
-                // 首连尾
-                current_edge->next = edge;
-                // 尾连首
-                nfa->Graph[opt.second].next_edge = new EdgeNode(opt.first, '^');;
             }
         }
         // 栈中应该只有一个元素，这就是nfa的起始状态和终止状态
@@ -335,24 +354,24 @@ public:
             }
             dup_check.insert(current_index);
         }
-        cout << "状态数：" << nfa->end+1 << "\t";
+        cout << "状态数：" << nfa->end + 1 << "\t";
         cout << "开始状态：" << nfa->start << "\t" << "接受状态：" << nfa->end << endl;
-        cout <<setw(4);
+        cout << setw(4);
         for (int i = 0; i < nfa->seen_char.size(); i++) {
-            cout << nfa->seen_char[i] <<setw(8);
+            cout << nfa->seen_char[i] << setw(8);
         }
         cout << endl;
         for (int i = 0; i < nfa->end + 1; i++) {
-            cout<<left<<setw(4)<<i;
+            cout << left << setw(4) << i;
             for (int j = 0; j < nfa->seen_char.size(); j++) {
                 cout << '{';
                 for (auto it = result_matrix[i][j].begin(); it != result_matrix[i][j].end(); it++) {
-                     cout<< *it;
-                     if(it+1!=result_matrix[i][j].end())
-                         cout <<  ',';
+                    cout << *it;
+                    if (it + 1 != result_matrix[i][j].end())
+                        cout << ',';
                 }
                 cout << '}';
-                cout<<right<<setw(4);
+                cout << right << setw(4);
             }
             cout << endl;
         }
@@ -366,7 +385,8 @@ int main() {
     // . 在构建nfa状态转换图时，直接视作普通字符
     // + `a+` 可以转换为 `aa*`
     // ? `a?` 可以转换为 `(a|^)`
-    string re = "(a|b)*abb+";
+    // (a|b)? --> ((a|b)|^)
+    string re = "ab+";
 
 
     NFATools tools = NFATools();
