@@ -28,7 +28,7 @@ typedef struct VertexNode {
 
 typedef struct NFA {
     int start, end;
-    string seen_char;
+    string *seen_char;
     VertexNode Graph[];
 } NFA;
 
@@ -90,14 +90,16 @@ private:
         string postfix_exp;
         // 辅助栈，存放操作符
         stack<char> operators;
+        // 辅助栈 存放左括号的索引位置
+        stack<int> open_parenthesis_index;
+        // 存放key（右括号索引）:value（左括号索引）
+        unordered_map<int,int> parenthesis_index;
         // 当前的字符
         char cur_elem;
         // 保存这个正则表达式输入中出现的所有字符
         set<char> seen_char;
         // 记录上一个字符，初始为-1
         char last_char = -1;
-        // 记录最近一次左括号的索引位置，初始为-1
-        int last_open_parenthesis_index = -1;
         for (int i = 0; i < infix_exp.size(); i++) {
             cur_elem = infix_exp[i];
             // 字符数字下划线
@@ -146,7 +148,7 @@ private:
                 // 左括号直接入栈
                 operators.push(cur_elem);
                 // 当前的左括号索引为最近一次遇见左括号
-                last_open_parenthesis_index = i;
+                open_parenthesis_index.push(i);
             } else if (is_close_parenthesis(cur_elem)) {
                 // 右括号
                 while (!is_open_parenthesis(operators.top())) {
@@ -156,6 +158,9 @@ private:
                     postfix_exp += c;
                     operators.pop();
                 }
+                // 记录括号匹配的索引
+                parenthesis_index[i] = open_parenthesis_index.top();
+                open_parenthesis_index.pop();
                 // 删掉栈中的(
                 operators.pop();
             } else if (is_special_character(cur_elem)) {
@@ -180,7 +185,8 @@ private:
                         // 将当前的字符+替换为*
                         infix_exp[i] = '*';
                         // 因此可以直接将索引回退到最近的左括号之前
-                        i = last_open_parenthesis_index - 1;
+                        // 获取左括号的索引位置减1
+                        i = parenthesis_index[i-1] - 1;
                         // 同时将上一个字符重新设置
                         last_char = ')';
                         continue;
@@ -307,27 +313,26 @@ public:
         auto status = assist.top();
         nfa->start = status.first;
         nfa->end = status.second;
-        // fixme 内存崩溃？
-        // 初始化seen_char字段
-        nfa->seen_char = "";
+        string characters;
         // 获取正则出现的所有字符
         set<char> seen_char = result.second;
         for (auto it = seen_char.begin(); it != seen_char.end(); it++) {
-            nfa->seen_char += *it;
+            characters += *it;
         }
         // 末尾添加空串
-        nfa->seen_char += '^';
-
+        characters += '^';
+        nfa->seen_char = &characters;
         return nfa;
     }
 
     void show_nfa(NFA *nfa) {
         // 输出矩阵
-        vector<int> result_matrix[nfa->end + 1][nfa->seen_char.size()];
+        string seen_char = *nfa->seen_char;
+        vector<int> result_matrix[nfa->end + 1][seen_char.size()];
         // 列字符索引映射
         unordered_map<char, int> column_index_map;
-        for (int i = 0; i < nfa->seen_char.size(); i++) {
-            column_index_map[nfa->seen_char[i]] = i;
+        for (int i = 0; i < seen_char.size(); i++) {
+            column_index_map[seen_char[i]] = i;
         }
         // 已遍历的节点保存，防止重复遍历
         set<int> dup_check;
@@ -358,13 +363,13 @@ public:
         cout << "状态数：" << nfa->end + 1 << "\t";
         cout << "开始状态：" << nfa->start << "\t" << "接受状态：" << nfa->end << endl;
         cout << setw(4);
-        for (int i = 0; i < nfa->seen_char.size(); i++) {
-            cout << nfa->seen_char[i] << setw(8);
+        for (int i = 0; i < seen_char.size(); i++) {
+            cout << seen_char[i] << setw(8);
         }
         cout << endl;
         for (int i = 0; i < nfa->end + 1; i++) {
             cout << left << setw(4) << i;
-            for (int j = 0; j < nfa->seen_char.size(); j++) {
+            for (int j = 0; j < seen_char.size(); j++) {
                 cout << '{';
                 for (auto it = result_matrix[i][j].begin(); it != result_matrix[i][j].end(); it++) {
                     cout << *it;
@@ -388,7 +393,7 @@ int main() {
     // ? `a?` 可以转换为 `(a|^)`
     // (a|b)? --> ((a|b)|^)
     // todo `.`处理？
-    string re = "(a|(b|c))";
+    string re = "(a|(b|c))+";
 
 
     NFATools tools = NFATools();
