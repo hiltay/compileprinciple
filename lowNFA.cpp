@@ -131,7 +131,7 @@ private:
                 // 例如： a( *( )(
                 if (last_char != -1) {
 //                    char last_char = infix_exp[i - 1];
-                    if (is_character(last_char) || is_special_character(last_char) || is_close_parenthesis(last_char)) {
+                    if (is_character(last_char) || is_close_parenthesis(last_char)) {
                         // 加入连接符 &
                         while (!operators.empty() && priority('&') <= priority(operators.top())) {
                             // 比较当前字符和运算符栈顶字符的优先级，如果当前字符的优先级小
@@ -307,6 +307,7 @@ public:
         auto status = assist.top();
         nfa->start = status.first;
         nfa->end = status.second;
+        // fixme 内存崩溃？
         // 初始化seen_char字段
         nfa->seen_char = "";
         // 获取正则出现的所有字符
@@ -386,7 +387,8 @@ int main() {
     // + `a+` 可以转换为 `aa*`
     // ? `a?` 可以转换为 `(a|^)`
     // (a|b)? --> ((a|b)|^)
-    string re = "ab+";
+    // todo `.`处理？
+    string re = "(a|(b|c))";
 
 
     NFATools tools = NFATools();
