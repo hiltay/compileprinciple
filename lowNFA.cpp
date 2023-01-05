@@ -39,7 +39,7 @@ private:
 
     bool is_character(char c) {
         // 数字字母下划线被认为是普通字符
-        return isalnum(c) || c == '_' || c=='.';
+        return isalnum(c) || c == '_' || c == '.';
     }
 
     bool is_special_character(char c) {
@@ -216,6 +216,34 @@ private:
         return make_pair(postfix_exp, seen_char);
     }
 
+
+    vector<int> epsilon_closure(NFA *nfa, int status) {
+        vector<int> result;
+        // 计算从nfa的status状态（索引）开始，只经过标号为epsilon（^）的路径到达的所有状态的索引
+        result.push_back(nfa->Graph[status].index);
+        EdgeNode *next_e = nfa->Graph[status].next_edge;
+        if (next_e->data == '^') result.push_back(next_e->adjvex);
+        while (next_e->next != nullptr) {
+            next_e = next_e->next;
+            if (next_e->data == '^') result.push_back(next_e->adjvex);
+        }
+
+        return result;
+
+    }
+
+    vector<int> move(NFA *nfa, int status, char c) {
+        vector<int> result;
+        // 计算从nfa的status状态（索引）开始，只经过标号为字符c的路径到达的所有状态的索引
+        EdgeNode *next_e = nfa->Graph[status].next_edge;
+        if (next_e->data == c) result.push_back(next_e->adjvex);
+        while (next_e->next != nullptr) {
+            next_e = next_e->next;
+            if (next_e->data == c) result.push_back(next_e->adjvex);
+        }
+        return result;
+    }
+
 public:
 
     NFA *construct(const string &re) {
@@ -377,19 +405,55 @@ public:
             }
             cout << endl;
         }
+        nfa->seen_char = &seen_char;
     }
 
+    void n2d(NFA *nfa) {
+        // nfa to dfa
+        // 将T的所有状态压入stack中;
+        string seen_char = *(nfa->seen_char);
+        stack<int> st;
+        //将ε-closure(T)初始化为T;
+        //while(stack非空){
+        //    将栈顶元素t弹出栈;
+        //    for(每个满足如下条件的u：从t出发有一个标号为ε的转换到达状态u)
+        //        if(u不在ε-closure(T)中){ todo
+        //            将u加入到ε-closure(T)中;
+        //            将u压入栈stack中;
+        //        }
+        //}.
+        // 开始状态
+        vector<int> result = epsilon_closure(nfa, nfa->start);
+        for (auto i = 0; i < result.size(); i++) {
+            st.push(result[i]);
+        }
+
+        while (!st.empty()) {
+            // 将栈顶元素t弹出栈;
+            int index = st.top();
+            st.pop();
+            for (auto i = 0; i < seen_char.size(); i++) {
+                // for(每个满足如下条件的u：从index出发有一个标号为seen_char[i]的转换到达状态u)
+                // 计算 move(index,seen_char[i])
+                vector<int> move_result = move(nfa, index, seen_char[i]);
+            }
+        }
+
+
+    }
 };
 
 int main() {
     // 正则表达式支持：字母、数字、下划线，特殊字符. + ? * | ，小括号()
     // 定义 ^ 代表空串 & 代表连接
     // . 在构建nfa状态转换图时，直接视作普通字符
-    string re = "(a|b(d|e))+(c|d)*.?";
+    string re = "(ab)+cd(e|f)";
 
     NFATools tools = NFATools();
     NFA *result = tools.construct(re);
     tools.show_nfa(result);
+
+    tools.n2d(result);
 
     return 0;
 
