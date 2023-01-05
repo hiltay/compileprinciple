@@ -96,7 +96,7 @@ private:
         // 当前的字符
         char cur_elem;
         // 保存这个正则表达式输入中出现的所有字符
-        set<char> seen_char;
+        set<char> seen_character;
         // 记录上一个字符，初始为-1
         char last_char = -1;
         for (int i = 0; i < infix_exp.size(); i++) {
@@ -104,7 +104,7 @@ private:
             // 字符数字下划线
             if (is_character(cur_elem)) {
                 // 添加到set，用于后续展示nfa使用，和构造后缀表达式的逻辑无关
-                seen_char.insert(cur_elem);
+                seen_character.insert(cur_elem);
                 if (last_char != -1) {
                     // 当前为普通字符，且非首个字符，查看上一个字符是否为普通字符或者除了左括号以外的特殊字符
                     // 例如：aa )a *a +a .a ?a
@@ -213,34 +213,57 @@ private:
         }
         // 至此得到后缀表达式
         cout << "输入的中缀表达式：" << infix << "\n对应的后缀表达式：" << postfix_exp << endl;
-        return make_pair(postfix_exp, seen_char);
+        return make_pair(postfix_exp, seen_character);
     }
 
 
-    vector<int> epsilon_closure(NFA *nfa, int status) {
-        vector<int> result;
+    set<int> epsilon_closure(NFA *nfa, int status) {
+        set<int> result;
         // 计算从nfa的status状态（索引）开始，只经过标号为epsilon（^）的路径到达的所有状态的索引
-        result.push_back(nfa->Graph[status].index);
+        result.insert(nfa->Graph[status].index);
         EdgeNode *next_e = nfa->Graph[status].next_edge;
-        if (next_e->data == '^') result.push_back(next_e->adjvex);
+        if (next_e->data == '^') result.insert(next_e->adjvex);
         while (next_e->next != nullptr) {
             next_e = next_e->next;
-            if (next_e->data == '^') result.push_back(next_e->adjvex);
+            if (next_e->data == '^') result.insert(next_e->adjvex);
         }
 
         return result;
 
     }
 
-    vector<int> move(NFA *nfa, int status, char c) {
-        vector<int> result;
-        // 计算从nfa的status状态（索引）开始，只经过标号为字符c的路径到达的所有状态的索引
-        EdgeNode *next_e = nfa->Graph[status].next_edge;
-        if (next_e->data == c) result.push_back(next_e->adjvex);
-        while (next_e->next != nullptr) {
-            next_e = next_e->next;
-            if (next_e->data == c) result.push_back(next_e->adjvex);
+    set<int> epsilon_closure(NFA *nfa, set<int> status) {
+        set<int> result;
+        // 计算从nfa的status状态（索引）开始，只经过标号为epsilon（^）的路径到达的所有状态的索引
+        for(auto it=status.begin();it!=status.end();it++){
+
+            result.insert(nfa->Graph[*it].index);
+            EdgeNode *next_e = nfa->Graph[*it].next_edge;
+            if (next_e->data == '^') result.insert(next_e->adjvex);
+            while (next_e->next != nullptr) {
+                next_e = next_e->next;
+                if (next_e->data == '^') result.insert(next_e->adjvex);
+            }
         }
+
+
+        return result;
+
+    }
+
+
+    set<int> move(NFA *nfa, set<int> T, char c) {
+        set<int> result;
+        for(auto it=T.begin();it!=T.end();it++){
+            // 计算从nfa的status状态（索引）开始，只经过标号为字符c的路径到达的所有状态的索引
+            EdgeNode *next_e = nfa->Graph[*it].next_edge;
+            if (next_e->data == c) result.insert(next_e->adjvex);
+            while (next_e->next != nullptr) {
+                next_e = next_e->next;
+                if (next_e->data == c) result.insert(next_e->adjvex);
+            }
+        }
+
         return result;
     }
 
@@ -411,8 +434,10 @@ public:
     void n2d(NFA *nfa) {
         // nfa to dfa
         // 将T的所有状态压入stack中;
+        // todo nfa结构体有问题，不用可变长结构体，改用指针+长度的形式？
         string seen_char = *(nfa->seen_char);
-        stack<int> st;
+        stack<set<int>> st;
+        int a=5;
         //将ε-closure(T)初始化为T;
         //while(stack非空){
         //    将栈顶元素t弹出栈;
@@ -423,19 +448,19 @@ public:
         //        }
         //}.
         // 开始状态
-        vector<int> result = epsilon_closure(nfa, nfa->start);
-        for (auto i = 0; i < result.size(); i++) {
-            st.push(result[i]);
-        }
+        set<int> result = epsilon_closure(nfa, nfa->start);
+        st.push(result);
 
         while (!st.empty()) {
-            // 将栈顶元素t弹出栈;
-            int index = st.top();
+            // 将栈顶元素初始状态集合T弹出栈;
+            set<int> T = st.top();
             st.pop();
             for (auto i = 0; i < seen_char.size(); i++) {
                 // for(每个满足如下条件的u：从index出发有一个标号为seen_char[i]的转换到达状态u)
                 // 计算 move(index,seen_char[i])
-                vector<int> move_result = move(nfa, index, seen_char[i]);
+                set<int> move_result = move(nfa, T, seen_char[i]);
+                move_result = epsilon_closure(nfa,move_result);
+
             }
         }
 
@@ -452,7 +477,6 @@ int main() {
     NFATools tools = NFATools();
     NFA *result = tools.construct(re);
     tools.show_nfa(result);
-
     tools.n2d(result);
 
     return 0;
