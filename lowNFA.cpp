@@ -39,12 +39,12 @@ private:
 
     bool is_character(char c) {
         // 数字字母下划线被认为是普通字符
-        return isalnum(c) || c == '_';
+        return isalnum(c) || c == '_' || c=='.';
     }
 
     bool is_special_character(char c) {
         // . * ? + |被认为是特殊字符
-        return c == '.' || c == '*' || c == '?' || c == '+' || c == '|';
+        return c == '*' || c == '?' || c == '+' || c == '|';
     }
 
     bool is_open_parenthesis(char c) {
@@ -70,7 +70,6 @@ private:
                 break;
             }
             case '*':
-            case '.':
             case '+':
             case '?': {
                 pri = 3;
@@ -93,7 +92,7 @@ private:
         // 辅助栈 存放左括号的索引位置
         stack<int> open_parenthesis_index;
         // 存放key（右括号索引）:value（左括号索引）
-        unordered_map<int,int> parenthesis_index;
+        unordered_map<int, int> parenthesis_index;
         // 当前的字符
         char cur_elem;
         // 保存这个正则表达式输入中出现的所有字符
@@ -133,7 +132,7 @@ private:
                 // 例如： a( *( )(
                 if (last_char != -1) {
 //                    char last_char = infix_exp[i - 1];
-                    if (is_character(last_char) || is_close_parenthesis(last_char)) {
+                    if (is_character(last_char) || is_special_character(last_char) || is_close_parenthesis(last_char)) {
                         // 加入连接符 &
                         while (!operators.empty() && priority('&') <= priority(operators.top())) {
                             // 比较当前字符和运算符栈顶字符的优先级，如果当前字符的优先级小
@@ -164,13 +163,10 @@ private:
                 // 删掉栈中的(
                 operators.pop();
             } else if (is_special_character(cur_elem)) {
-                // 通配符.在展示时视作普通字符，所以需要添加到set，用于后续展示nfa使用，和构造后缀表达式的逻辑无关
-                if (cur_elem == '.')
-                    seen_char.insert(cur_elem);
                 if (cur_elem == '+') {
                     // 对于+，有两种情况：
-                    if (is_character(last_char) || last_char == '.') {
-                        // 如果上一个字符是普通字符或者通配符.
+                    if (is_character(last_char)) {
+                        // 如果上一个字符是普通字符
                         // 即：.+ a+ b+ c+ 这种情况
                         // 我们将其看做..* aa* bb* cc*，因此，我们的做法是
                         // 1、将当前的字符+替换为*
@@ -186,7 +182,7 @@ private:
                         infix_exp[i] = '*';
                         // 因此可以直接将索引回退到最近的左括号之前
                         // 获取左括号的索引位置减1
-                        i = parenthesis_index[i-1] - 1;
+                        i = parenthesis_index[i - 1] - 1;
                         // 同时将上一个字符重新设置
                         last_char = ')';
                         continue;
@@ -389,12 +385,7 @@ int main() {
     // 正则表达式支持：字母、数字、下划线，特殊字符. + ? * | ，小括号()
     // 定义 ^ 代表空串 & 代表连接
     // . 在构建nfa状态转换图时，直接视作普通字符
-    // + `a+` 可以转换为 `aa*`
-    // ? `a?` 可以转换为 `(a|^)`
-    // (a|b)? --> ((a|b)|^)
-    // todo `.`处理？
-    string re = "(a|(b|c))+";
-
+    string re = "(a|b(d|e))+(c|d)*.?";
 
     NFATools tools = NFATools();
     NFA *result = tools.construct(re);
