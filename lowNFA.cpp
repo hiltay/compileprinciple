@@ -36,6 +36,7 @@ private:
     // nfa、dfa图的自增标号
     int nfa_counter = 0;
     int dfa_counter = 0;
+    // 动态分配内存？todo
     string seen_char;
 
     bool is_character(char c) {
@@ -478,6 +479,7 @@ public:
         while (!iter_start_status.empty()) {
             int current_index = iter_start_status.top();
             iter_start_status.pop();
+            if(dup_check.find(current_index) != dup_check.end()) continue;
 
             if (dfa->Graph[current_index].next_edge != nullptr) {
                 EdgeNode *next_e = dfa->Graph[current_index].next_edge;
@@ -542,7 +544,9 @@ public:
         Dtran.push_back(result);
         st.push(make_pair(result, dfa_counter));
         // 构建能容纳字符长度的NFA，dfa的状态数可能是对应nfa的状态数的指数（实践中一般不会）
-        FA *dfa = new FA();
+        // 最坏情况，假设nfa状态数为n，dfa状态数可能为2^n
+//        FA *dfa = new FA();
+        FA *dfa = (FA *) malloc(sizeof(struct FA) + 100*nfa->end * sizeof(VertexNode));
         VertexNode new_node = {.index=dfa_counter, .next_edge=nullptr};
         dfa->Graph[dfa_counter++] = new_node;
 
@@ -551,7 +555,7 @@ public:
             set<int> T = st.top().first;
             int edge_out_index = st.top().second;
             st.pop();
-            for (auto i = 0; i < seen_char.size() - 1; i++) {
+            for (int i = 0; i < seen_char.size() - 1; i++) {
                 // for(每个满足如下条件的u：从index出发有一个标号为seen_char[i]的转换到达状态u)
                 // 计算 move(index,seen_char[i])
                 set<int> move_result = move(nfa, T, seen_char[i]);
@@ -574,10 +578,6 @@ public:
                         }
                         tmp_edge->next = edge;
                     }
-
-
-
-
                     // 添加新状态
                     dfa->Graph[dfa_counter++] = node;
                 } else {
@@ -592,10 +592,7 @@ public:
                         }
                         tmp_edge->next = edge;
                     }
-
-
                 }
-
             }
         }
         dfa->start = 0;
