@@ -26,10 +26,10 @@ typedef struct VertexNode {
     EdgeNode *next_edge;
 } VertexNode;
 
-typedef struct NFA {
+typedef struct FA {
     int start, end;
     VertexNode Graph[];
-} NFA;
+} FA;
 
 class NFATools {
 private:
@@ -225,7 +225,7 @@ private:
     }
 
 
-    set<int> closure(NFA *nfa, int status, char c) {
+    set<int> closure(FA *nfa, int status, char c) {
         // 计算从nfa的status状态（索引）开始，只经过标号为epsilon（^）的路径到达的所有状态的索引
         set<int> result;
         // 已遍历的节点保存，防止重复遍历
@@ -242,6 +242,7 @@ private:
                 result.insert(nfa->Graph[current_index].index);
             }
             EdgeNode *next_e = nfa->Graph[current_index].next_edge;
+            if (next_e== nullptr) continue;
             if (next_e->data == c) {
                 result.insert(next_e->adjvex);
                 if (dup_check.find(next_e->adjvex) == dup_check.end())
@@ -265,7 +266,7 @@ private:
 
     }
 
-    set<int> epsilon_closure(NFA *nfa, set<int> status) {
+    set<int> epsilon_closure(FA *nfa, set<int> status) {
         set<int> result;
         // 计算从nfa的status状态（索引）开始，只经过标号为epsilon（^）的路径到达的所有状态的索引
         for (auto it = status.begin(); it != status.end(); it++) {
@@ -277,7 +278,7 @@ private:
     }
 
 
-    set<int> move(NFA *nfa, set<int> T, char c) {
+    set<int> move(FA *nfa, set<int> T, char c) {
         set<int> result;
         for (auto it = T.begin(); it != T.end(); it++) {
             set<int> r = closure(nfa, *it, c);
@@ -288,22 +289,35 @@ private:
     }
 
     bool set_is_equal(set<int> &s1, set<int> &s2) {
-
+        if (s1.size() != s2.size()) return false;
+        for (auto it1 = s1.begin(), it2 = s2.begin(); it1 != s1.end(); it1++, it2++) {
+            if (*it1 != *it2) return false;
+        }
+        return true;
 
     }
-    
-    bool is_new_status(){
-        
+
+    int get_new_status_index(vector<set<int>> &Dtran, set<int> &s) {
+        for (int i = 0; i < Dtran.size(); i++) {
+            // 遍历当前Dtran中的每个状态
+            if (set_is_equal(Dtran[i], s))
+                // 如果新状态与Dtran其中任何一个状态相等，则说明重复
+                // 返回重复的Dtran索引
+                return i;
+        }
+        // 没有重复，说明是新状态，返回-1
+        return -1;
+
     }
 
 public:
-    NFA *construct(const string &re) {
+    FA *construct(const string &re) {
         // 得到后缀表达式
         string postfix_exp = convert_postfix_exp(re);
         // 确定最大状态数，以分配邻接表内存
         auto max_state_num = postfix_exp.size() * 2;
         // 构建能容纳字符长度的NFA
-        NFA *nfa = (NFA *) malloc(sizeof(struct NFA) + max_state_num * sizeof(VertexNode));
+        FA *nfa = (FA *) malloc(sizeof(struct FA) + max_state_num * sizeof(VertexNode));
         // 辅助栈，保存两个节点的索引和边的方向
         stack<pair<int, int>> assist;
 
@@ -391,7 +405,7 @@ public:
         return nfa;
     }
 
-    void show_nfa(NFA *nfa) {
+    void show_nfa(FA *nfa) {
         // 输出矩阵
         vector<int> result_matrix[nfa->end + 1][seen_char.size()];
         // 列字符索引映射
@@ -448,11 +462,11 @@ public:
         }
     }
 
-    void n2d(NFA *nfa) {
+    FA *n2d(FA *nfa) {
         // nfa to dfa
         // 将T的所有状态压入stack中;
         // todo nfa结构体有问题，不用可变长结构体，改用指针+长度的形式？
-        stack<set<int>> st;
+        stack<pair<set<int>, int>> st;
         //将ε-closure(T)初始化为T;
         //while(stack非空){
         //    将栈顶元素t弹出栈;
@@ -466,25 +480,68 @@ public:
 
         // 开始状态
         set<int> result = closure(nfa, nfa->start, '^');
-        st.push(result);
-        //
         Dtran.push_back(result);
+        st.push(make_pair(result, dfa_counter));
+        // 构建能容纳字符长度的NFA，dfa的状态数可能是对应nfa的状态数的指数（实践中一般不会）
+        FA *dfa = new FA();
+        VertexNode new_node = {.index=dfa_counter, .next_edge=nullptr};
+        dfa->Graph[dfa_counter++] = new_node;
+
         while (!st.empty()) {
             // 将栈顶元素初始状态集合T弹出栈;
-            set<int> T = st.top();
+            set<int> T = st.top().first;
+            int edge_out_index = st.top().second;
             st.pop();
             for (auto i = 0; i < seen_char.size() - 1; i++) {
                 // for(每个满足如下条件的u：从index出发有一个标号为seen_char[i]的转换到达状态u)
                 // 计算 move(index,seen_char[i])
                 set<int> move_result = move(nfa, T, seen_char[i]);
                 move_result = epsilon_closure(nfa, move_result);
-                // ε-closure(move(T,a))的结果查看是否是新状态 todo
+                // ε-closure(move(T,a))的结果查看是否是新状态
+                int new_status_index = get_new_status_index(Dtran, move_result);
+                if (new_status_index == -1) {
+                    // 添加到栈、Dtran
+                    Dtran.push_back(move_result);
+                    st.push(make_pair(move_result, dfa_counter));
+                    // 新状态，构造图
+                    EdgeNode *edge = new EdgeNode(dfa_counter, seen_char[i]);
+                    VertexNode node = {.index=dfa_counter, .next_edge=nullptr};
+                    // 添加一条边，插入到邻接表链表末尾
+                    EdgeNode *tmp_edge = dfa->Graph[edge_out_index].next_edge;
+                    if (tmp_edge == nullptr) dfa->Graph[edge_out_index].next_edge = edge;
+                    else {
+                        while (tmp_edge->next != nullptr) {
+                            tmp_edge = tmp_edge->next;
+                        }
+                        tmp_edge->next = edge;
+                    }
 
+
+
+
+                    // 添加新状态
+                    dfa->Graph[dfa_counter++] = node;
+                } else {
+                    // 旧状态，构造图
+                    EdgeNode *edge = new EdgeNode(new_status_index, seen_char[i]);
+                    // 添加一条边，插入到邻接表链表末尾
+                    EdgeNode *tmp_edge = dfa->Graph[edge_out_index].next_edge;
+                    if (tmp_edge == nullptr) dfa->Graph[edge_out_index].next_edge = edge;
+                    else {
+                        while (tmp_edge->next != nullptr) {
+                            tmp_edge = tmp_edge->next;
+                        }
+                        tmp_edge->next = edge;
+                    }
+
+
+                }
 
             }
         }
-
-
+        dfa->start = 0;
+        dfa->end = dfa_counter-1;
+        return dfa;
     }
 };
 
@@ -495,10 +552,10 @@ int main() {
     string re = "(a|b)*abb";
 
     NFATools tools = NFATools();
-    NFA *result = tools.construct(re);
+    FA *result = tools.construct(re);
     tools.show_nfa(result);
-    tools.n2d(result);
-
+    FA *dfa = tools.n2d(result);
+    tools.show_nfa(dfa);
     return 0;
 
     // leetcode:https://leetcode.cn/problems/Valid-Number/
