@@ -242,7 +242,7 @@ private:
                 result.insert(nfa->Graph[current_index].index);
             }
             EdgeNode *next_e = nfa->Graph[current_index].next_edge;
-            if (next_e== nullptr) continue;
+            if (next_e == nullptr) continue;
             if (next_e->data == c) {
                 result.insert(next_e->adjvex);
                 if (dup_check.find(next_e->adjvex) == dup_check.end())
@@ -462,6 +462,65 @@ public:
         }
     }
 
+    void show_dfa(FA *dfa) {
+        // 输出矩阵
+        vector<int> result_matrix[dfa->end + 1][seen_char.size()-1];
+        // 列字符索引映射
+        unordered_map<char, int> column_index_map;
+        for (int i = 0; i < seen_char.size()-1; i++) {
+            column_index_map[seen_char[i]] = i;
+        }
+        // 已遍历的节点保存，防止重复遍历
+        set<int> dup_check;
+        // 辅助栈记录需要遍历的起始索引
+        stack<int> iter_start_status;
+        iter_start_status.push(dfa->start);
+        while (!iter_start_status.empty()) {
+            int current_index = iter_start_status.top();
+            iter_start_status.pop();
+
+            if (dfa->Graph[current_index].next_edge != nullptr) {
+                EdgeNode *next_e = dfa->Graph[current_index].next_edge;
+                result_matrix[current_index][column_index_map[next_e->data]].push_back(next_e->adjvex);
+
+                if (dup_check.find(next_e->adjvex) == dup_check.end())
+                    // 如果之前没有遍历过，则将节点入栈
+                    iter_start_status.push(next_e->adjvex);
+                while (next_e->next != nullptr) {
+                    next_e = next_e->next;
+                    result_matrix[current_index][column_index_map[next_e->data]].push_back(next_e->adjvex);
+                    if (dup_check.find(next_e->adjvex) == dup_check.end())
+                        // 如果之前没有遍历过，则将节点入栈
+                        iter_start_status.push(next_e->adjvex);
+                }
+            }
+            dup_check.insert(current_index);
+        }
+        cout << "状态数：" << dfa->end + 1 << "\t";
+        cout << "开始状态：" << dfa->start << "\t" << "接受状态：" << dfa->end << endl;
+        cout << setw(4);
+        for (int i = 0; i < seen_char.size()-1; i++) {
+            cout << seen_char[i] << setw(8);
+        }
+        cout << endl;
+        for (int i = 0; i < dfa->end + 1; i++) {
+            cout << left << setw(4) << i;
+            for (int j = 0; j < seen_char.size()-1; j++) {
+                cout << '{';
+                for (auto it = result_matrix[i][j].begin(); it != result_matrix[i][j].end(); it++) {
+                    cout << *it;
+                    if (it + 1 != result_matrix[i][j].end())
+                        cout << ',';
+                }
+                cout << '}';
+                cout << right << setw(4);
+            }
+            cout << endl;
+        }
+        cout<<"done"<<endl;
+    }
+
+
     FA *n2d(FA *nfa) {
         // nfa to dfa
         // 将T的所有状态压入stack中;
@@ -540,7 +599,7 @@ public:
             }
         }
         dfa->start = 0;
-        dfa->end = dfa_counter-1;
+        dfa->end = dfa_counter - 1;
         return dfa;
     }
 };
@@ -555,7 +614,7 @@ int main() {
     FA *result = tools.construct(re);
     tools.show_nfa(result);
     FA *dfa = tools.n2d(result);
-    tools.show_nfa(dfa);
+    tools.show_dfa(dfa);
     return 0;
 
     // leetcode:https://leetcode.cn/problems/Valid-Number/
