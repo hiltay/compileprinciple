@@ -28,14 +28,15 @@ typedef struct VertexNode {
 
 typedef struct NFA {
     int start, end;
-    string *seen_char;
     VertexNode Graph[];
 } NFA;
 
 class NFATools {
 private:
-    // 自增标号
-    int counter = 0;
+    // nfa、dfa图的自增标号
+    int nfa_counter = 0;
+    int dfa_counter = 0;
+    string seen_char;
 
     bool is_character(char c) {
         // 数字字母下划线被认为是普通字符
@@ -82,7 +83,7 @@ private:
     }
 
 
-    pair<string, set<char>> convert_postfix_exp(const string &infix) {
+    string convert_postfix_exp(const string &infix) {
         // see:https://zh.m.wikipedia.org/zh-hans/%E8%B0%83%E5%BA%A6%E5%9C%BA%E7%AE%97%E6%B3%95
         string infix_exp = infix;
         // 输出结果为后缀表达式
@@ -213,19 +214,51 @@ private:
         }
         // 至此得到后缀表达式
         cout << "输入的中缀表达式：" << infix << "\n对应的后缀表达式：" << postfix_exp << endl;
-        return make_pair(postfix_exp, seen_character);
+        // 获取正则出现的所有字符
+        for (auto it = seen_character.begin(); it != seen_character.end(); it++) {
+            seen_char += *it;
+        }
+        // 末尾添加空串
+        seen_char += '^';
+
+        return postfix_exp;
     }
 
 
-    set<int> epsilon_closure(NFA *nfa, int status) {
-        set<int> result;
+    set<int> closure(NFA *nfa, int status, char c) {
         // 计算从nfa的status状态（索引）开始，只经过标号为epsilon（^）的路径到达的所有状态的索引
-        result.insert(nfa->Graph[status].index);
-        EdgeNode *next_e = nfa->Graph[status].next_edge;
-        if (next_e->data == '^') result.insert(next_e->adjvex);
-        while (next_e->next != nullptr) {
-            next_e = next_e->next;
-            if (next_e->data == '^') result.insert(next_e->adjvex);
+        set<int> result;
+        // 已遍历的节点保存，防止重复遍历
+        set<int> dup_check;
+        // 辅助栈记录需要遍历的起始索引
+        stack<int> iter_start_status;
+        iter_start_status.push(status);
+        while (!iter_start_status.empty()) {
+            int current_index = iter_start_status.top();
+            iter_start_status.pop();
+            dup_check.insert(current_index);
+            if (c == '^') {
+                // 本身肯定是可以通过空串到达的状态，直接加入
+                result.insert(nfa->Graph[current_index].index);
+            }
+            EdgeNode *next_e = nfa->Graph[current_index].next_edge;
+            if (next_e->data == c) {
+                result.insert(next_e->adjvex);
+                if (dup_check.find(next_e->adjvex) == dup_check.end())
+                    // 如果之前没有遍历过，则将节点入栈
+                    iter_start_status.push(next_e->adjvex);
+            }
+            while (next_e->next != nullptr) {
+                next_e = next_e->next;
+                if (next_e->data == c) {
+                    result.insert(next_e->adjvex);
+                    if (dup_check.find(next_e->adjvex) == dup_check.end())
+                        // 如果之前没有遍历过，则将节点入栈
+                        iter_start_status.push(next_e->adjvex);
+                }
+
+            }
+
         }
 
         return result;
@@ -235,18 +268,10 @@ private:
     set<int> epsilon_closure(NFA *nfa, set<int> status) {
         set<int> result;
         // 计算从nfa的status状态（索引）开始，只经过标号为epsilon（^）的路径到达的所有状态的索引
-        for(auto it=status.begin();it!=status.end();it++){
-
-            result.insert(nfa->Graph[*it].index);
-            EdgeNode *next_e = nfa->Graph[*it].next_edge;
-            if (next_e->data == '^') result.insert(next_e->adjvex);
-            while (next_e->next != nullptr) {
-                next_e = next_e->next;
-                if (next_e->data == '^') result.insert(next_e->adjvex);
-            }
+        for (auto it = status.begin(); it != status.end(); it++) {
+            set<int> r = closure(nfa, *it, '^');
+            result.insert(r.begin(), r.end());
         }
-
-
         return result;
 
     }
@@ -254,25 +279,27 @@ private:
 
     set<int> move(NFA *nfa, set<int> T, char c) {
         set<int> result;
-        for(auto it=T.begin();it!=T.end();it++){
-            // 计算从nfa的status状态（索引）开始，只经过标号为字符c的路径到达的所有状态的索引
-            EdgeNode *next_e = nfa->Graph[*it].next_edge;
-            if (next_e->data == c) result.insert(next_e->adjvex);
-            while (next_e->next != nullptr) {
-                next_e = next_e->next;
-                if (next_e->data == c) result.insert(next_e->adjvex);
-            }
+        for (auto it = T.begin(); it != T.end(); it++) {
+            set<int> r = closure(nfa, *it, c);
+            result.insert(r.begin(), r.end());
         }
 
         return result;
     }
 
-public:
+    bool set_is_equal(set<int> &s1, set<int> &s2) {
 
+
+    }
+    
+    bool is_new_status(){
+        
+    }
+
+public:
     NFA *construct(const string &re) {
         // 得到后缀表达式
-        pair<string, set<char>> result = convert_postfix_exp(re);
-        string postfix_exp = result.first;
+        string postfix_exp = convert_postfix_exp(re);
         // 确定最大状态数，以分配邻接表内存
         auto max_state_num = postfix_exp.size() * 2;
         // 构建能容纳字符长度的NFA
@@ -286,9 +313,9 @@ public:
             cout << "current char:" << current_char << endl;
             if (is_character(current_char) || current_char == '.') {
                 // 如果是字符，构建子NFA，并将其NFA的节点索引入栈
-                EdgeNode *edge = new EdgeNode(counter + 1, current_char);
-                VertexNode basic_node_start = {.index=counter++, .next_edge=edge};
-                VertexNode basic_node_end = {.index=counter++, .next_edge=nullptr};
+                EdgeNode *edge = new EdgeNode(nfa_counter + 1, current_char);
+                VertexNode basic_node_start = {.index=nfa_counter++, .next_edge=edge};
+                VertexNode basic_node_end = {.index=nfa_counter++, .next_edge=nullptr};
 
                 // 添加到图中
                 nfa->Graph[basic_node_start.index] = basic_node_start;
@@ -303,9 +330,9 @@ public:
                 // 新节点连接两个旧节点的头
                 EdgeNode *edge1 = new EdgeNode(left_opt.first, '^');
                 EdgeNode *edge2 = new EdgeNode(right_opt.first, '^', edge1);
-                VertexNode basic_node_start = {.index=counter++, .next_edge=edge2};
+                VertexNode basic_node_start = {.index=nfa_counter++, .next_edge=edge2};
                 // 创建新节点
-                VertexNode basic_node_end = {.index=counter++, .next_edge=nullptr};
+                VertexNode basic_node_end = {.index=nfa_counter++, .next_edge=nullptr};
                 // 两个旧节点尾部连接新节点
                 nfa->Graph[left_opt.second].next_edge = new EdgeNode(basic_node_end.index, '^');
                 nfa->Graph[right_opt.second].next_edge = new EdgeNode(basic_node_end.index, '^');
@@ -319,8 +346,8 @@ public:
                 auto opt = assist.top();
                 assist.pop();
                 EdgeNode *edge1 = new EdgeNode(opt.first, '^');
-                VertexNode basic_node_start = {.index=counter++, .next_edge=nullptr};
-                VertexNode basic_node_end = {.index=counter++, .next_edge=nullptr};
+                VertexNode basic_node_start = {.index=nfa_counter++, .next_edge=nullptr};
+                VertexNode basic_node_end = {.index=nfa_counter++, .next_edge=nullptr};
                 EdgeNode *edge2 = new EdgeNode(basic_node_end.index, '^', edge1);
                 basic_node_start.next_edge = edge2;
                 // 修改图
@@ -360,21 +387,12 @@ public:
         auto status = assist.top();
         nfa->start = status.first;
         nfa->end = status.second;
-        string characters;
-        // 获取正则出现的所有字符
-        set<char> seen_char = result.second;
-        for (auto it = seen_char.begin(); it != seen_char.end(); it++) {
-            characters += *it;
-        }
-        // 末尾添加空串
-        characters += '^';
-        nfa->seen_char = &characters;
+
         return nfa;
     }
 
     void show_nfa(NFA *nfa) {
         // 输出矩阵
-        string seen_char = *nfa->seen_char;
         vector<int> result_matrix[nfa->end + 1][seen_char.size()];
         // 列字符索引映射
         unordered_map<char, int> column_index_map;
@@ -428,16 +446,13 @@ public:
             }
             cout << endl;
         }
-        nfa->seen_char = &seen_char;
     }
 
     void n2d(NFA *nfa) {
         // nfa to dfa
         // 将T的所有状态压入stack中;
         // todo nfa结构体有问题，不用可变长结构体，改用指针+长度的形式？
-        string seen_char = *(nfa->seen_char);
         stack<set<int>> st;
-        int a=5;
         //将ε-closure(T)初始化为T;
         //while(stack非空){
         //    将栈顶元素t弹出栈;
@@ -447,19 +462,24 @@ public:
         //            将u压入栈stack中;
         //        }
         //}.
-        // 开始状态
-        set<int> result = epsilon_closure(nfa, nfa->start);
-        st.push(result);
+        vector<set<int>> Dtran;
 
+        // 开始状态
+        set<int> result = closure(nfa, nfa->start, '^');
+        st.push(result);
+        //
+        Dtran.push_back(result);
         while (!st.empty()) {
             // 将栈顶元素初始状态集合T弹出栈;
             set<int> T = st.top();
             st.pop();
-            for (auto i = 0; i < seen_char.size(); i++) {
+            for (auto i = 0; i < seen_char.size() - 1; i++) {
                 // for(每个满足如下条件的u：从index出发有一个标号为seen_char[i]的转换到达状态u)
                 // 计算 move(index,seen_char[i])
                 set<int> move_result = move(nfa, T, seen_char[i]);
-                move_result = epsilon_closure(nfa,move_result);
+                move_result = epsilon_closure(nfa, move_result);
+                // ε-closure(move(T,a))的结果查看是否是新状态 todo
+
 
             }
         }
@@ -472,7 +492,7 @@ int main() {
     // 正则表达式支持：字母、数字、下划线，特殊字符. + ? * | ，小括号()
     // 定义 ^ 代表空串 & 代表连接
     // . 在构建nfa状态转换图时，直接视作普通字符
-    string re = "(ab)+cd(e|f)";
+    string re = "(a|b)*abb";
 
     NFATools tools = NFATools();
     NFA *result = tools.construct(re);
