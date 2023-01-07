@@ -27,7 +27,7 @@ typedef struct VertexNode {
 } VertexNode;
 
 typedef struct FA {
-    int start, end;
+    int start;
     VertexNode Graph[];
 } FA;
 
@@ -35,6 +35,10 @@ class NFATools {
 private:
     // nfa、dfa图的自增标号
     int nfa_counter = 0;
+    // nfa的终止状态
+    int nfa_end;
+    // dfa的终止状态集
+    vector<int> dfa_end;
     int dfa_counter = 0;
     // 动态分配内存？todo
     string seen_char;
@@ -401,14 +405,14 @@ public:
         // 栈中应该只有一个元素，这就是nfa的起始状态和终止状态
         auto status = assist.top();
         nfa->start = status.first;
-        nfa->end = status.second;
+        nfa_end = status.second;
 
         return nfa;
     }
 
     void show_nfa(FA *nfa) {
         // 输出矩阵
-        vector<int> result_matrix[nfa->end + 1][seen_char.size()];
+        vector<int> result_matrix[nfa_end + 1][seen_char.size()];
         // 列字符索引映射
         unordered_map<char, int> column_index_map;
         for (int i = 0; i < seen_char.size(); i++) {
@@ -440,14 +444,14 @@ public:
             }
             dup_check.insert(current_index);
         }
-        cout << "状态数：" << nfa->end + 1 << "\t";
-        cout << "开始状态：" << nfa->start << "\t" << "接受状态：" << nfa->end << endl;
+        cout << "状态数：" << nfa_end + 1 << "\t";
+        cout << "开始状态：" << nfa->start << "\t" << "接受状态：" << nfa_end << endl;
         cout << setw(4);
         for (int i = 0; i < seen_char.size(); i++) {
             cout << seen_char[i] << setw(8);
         }
         cout << endl;
-        for (int i = 0; i < nfa->end + 1; i++) {
+        for (int i = 0; i < nfa_end + 1; i++) {
             cout << left << setw(4) << i;
             for (int j = 0; j < seen_char.size(); j++) {
                 cout << '{';
@@ -465,10 +469,10 @@ public:
 
     void show_dfa(FA *dfa) {
         // 输出矩阵
-        vector<int> result_matrix[dfa->end + 1][seen_char.size()-1];
+        vector<int> result_matrix[dfa_counter][seen_char.size() - 1];
         // 列字符索引映射
         unordered_map<char, int> column_index_map;
-        for (int i = 0; i < seen_char.size()-1; i++) {
+        for (int i = 0; i < seen_char.size() - 1; i++) {
             column_index_map[seen_char[i]] = i;
         }
         // 已遍历的节点保存，防止重复遍历
@@ -479,7 +483,7 @@ public:
         while (!iter_start_status.empty()) {
             int current_index = iter_start_status.top();
             iter_start_status.pop();
-            if(dup_check.find(current_index) != dup_check.end()) continue;
+            if (dup_check.find(current_index) != dup_check.end()) continue;
 
             if (dfa->Graph[current_index].next_edge != nullptr) {
                 EdgeNode *next_e = dfa->Graph[current_index].next_edge;
@@ -498,16 +502,21 @@ public:
             }
             dup_check.insert(current_index);
         }
-        cout << "状态数：" << dfa->end + 1 << "\t";
-        cout << "开始状态：" << dfa->start << "\t" << "接受状态：" << dfa->end << endl;
-        cout << setw(4);
-        for (int i = 0; i < seen_char.size()-1; i++) {
+        cout << "状态数：" << dfa_counter << "\t";
+        cout << "开始状态：" << dfa->start << "\t" << "接受状态：";
+        for(int i=0;i<dfa_end.size();i++){
+            cout << dfa_end[i];
+            if (i + 1 != dfa_end.size())
+                cout << ',';
+        }
+        cout <<endl<< setw(4);
+        for (int i = 0; i < seen_char.size() - 1; i++) {
             cout << seen_char[i] << setw(8);
         }
         cout << endl;
-        for (int i = 0; i < dfa->end + 1; i++) {
+        for (int i = 0; i < dfa_counter; i++) {
             cout << left << setw(4) << i;
-            for (int j = 0; j < seen_char.size()-1; j++) {
+            for (int j = 0; j < seen_char.size() - 1; j++) {
                 cout << '{';
                 for (auto it = result_matrix[i][j].begin(); it != result_matrix[i][j].end(); it++) {
                     cout << *it;
@@ -519,20 +528,18 @@ public:
             }
             cout << endl;
         }
-        cout<<"done"<<endl;
     }
 
 
     FA *n2d(FA *nfa) {
         // nfa to dfa
         // 将T的所有状态压入stack中;
-        // todo nfa结构体有问题，不用可变长结构体，改用指针+长度的形式？
         stack<pair<set<int>, int>> st;
         //将ε-closure(T)初始化为T;
         //while(stack非空){
         //    将栈顶元素t弹出栈;
         //    for(每个满足如下条件的u：从t出发有一个标号为ε的转换到达状态u)
-        //        if(u不在ε-closure(T)中){ todo
+        //        if(u不在ε-closure(T)中){
         //            将u加入到ε-closure(T)中;
         //            将u压入栈stack中;
         //        }
@@ -546,7 +553,7 @@ public:
         // 构建能容纳字符长度的NFA，dfa的状态数可能是对应nfa的状态数的指数（实践中一般不会）
         // 最坏情况，假设nfa状态数为n，dfa状态数可能为2^n
 //        FA *dfa = new FA();
-        FA *dfa = (FA *) malloc(sizeof(struct FA) + 100*nfa->end * sizeof(VertexNode));
+        FA *dfa = (FA *) malloc(sizeof(struct FA) + 100 * nfa_counter * sizeof(VertexNode));
         VertexNode new_node = {.index=dfa_counter, .next_edge=nullptr};
         dfa->Graph[dfa_counter++] = new_node;
 
@@ -560,6 +567,8 @@ public:
                 // 计算 move(index,seen_char[i])
                 set<int> move_result = move(nfa, T, seen_char[i]);
                 move_result = epsilon_closure(nfa, move_result);
+                // 有可能结果为空，即没有任何可用的转换，则不进行下面的步骤
+                if (move_result.empty()) continue;
                 // ε-closure(move(T,a))的结果查看是否是新状态
                 int new_status_index = get_new_status_index(Dtran, move_result);
                 if (new_status_index == -1) {
@@ -596,7 +605,14 @@ public:
             }
         }
         dfa->start = 0;
-        dfa->end = dfa_counter - 1;
+
+        for (int i = 0; i < Dtran.size(); i++) {
+            if (Dtran[i].find(nfa_end) != Dtran[i].end()) {
+                // 如果Dtran中某个状态中包含nfa的终止状态，则我们称这个状态为dfa的接受状态
+                dfa_end.push_back(i);
+            }
+
+        }
         return dfa;
     }
 };
@@ -605,7 +621,8 @@ int main() {
     // 正则表达式支持：字母、数字、下划线，特殊字符. + ? * | ，小括号()
     // 定义 ^ 代表空串 & 代表连接
     // . 在构建nfa状态转换图时，直接视作普通字符
-    string re = "(a|b)*abb";
+    string re = "ab(c|a)?";
+//    string re = "ab*";  todo DFA的终态就是所有包含了NFA终态的DFA的状态。   ***********
 
     NFATools tools = NFATools();
     FA *result = tools.construct(re);
