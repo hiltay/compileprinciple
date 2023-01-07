@@ -38,7 +38,7 @@ private:
     // nfa的终止状态
     int nfa_end;
     // dfa的终止状态集
-    vector<int> dfa_end;
+    set<int> dfa_end;
     int dfa_counter = 0;
     // 动态分配内存？todo
     string seen_char;
@@ -315,6 +315,15 @@ private:
 
     }
 
+    int belong(int i, vector<pair<set<int>, int>> &S) {
+        // 查看i在S中的位置，没找到则为-1
+        for(int it=0;it<S.size();it++){
+            if(S[it].first.find(i)!=S[it].first.end()) return it;
+        }
+
+        return -1;
+    }
+
 public:
     FA *construct(const string &re) {
         // 得到后缀表达式
@@ -504,12 +513,10 @@ public:
         }
         cout << "状态数：" << dfa_counter << "\t";
         cout << "开始状态：" << dfa->start << "\t" << "接受状态：";
-        for(int i=0;i<dfa_end.size();i++){
-            cout << dfa_end[i];
-            if (i + 1 != dfa_end.size())
-                cout << ',';
+        for (auto it = dfa_end.begin(); it != dfa_end.end(); it++) {
+            cout << *it;
         }
-        cout <<endl<< setw(4);
+        cout << endl << setw(4);
         for (int i = 0; i < seen_char.size() - 1; i++) {
             cout << seen_char[i] << setw(8);
         }
@@ -535,15 +542,6 @@ public:
         // nfa to dfa
         // 将T的所有状态压入stack中;
         stack<pair<set<int>, int>> st;
-        //将ε-closure(T)初始化为T;
-        //while(stack非空){
-        //    将栈顶元素t弹出栈;
-        //    for(每个满足如下条件的u：从t出发有一个标号为ε的转换到达状态u)
-        //        if(u不在ε-closure(T)中){
-        //            将u加入到ε-closure(T)中;
-        //            将u压入栈stack中;
-        //        }
-        //}.
         vector<set<int>> Dtran;
 
         // 开始状态
@@ -552,7 +550,6 @@ public:
         st.push(make_pair(result, dfa_counter));
         // 构建能容纳字符长度的NFA，dfa的状态数可能是对应nfa的状态数的指数（实践中一般不会）
         // 最坏情况，假设nfa状态数为n，dfa状态数可能为2^n
-//        FA *dfa = new FA();
         FA *dfa = (FA *) malloc(sizeof(struct FA) + 100 * nfa_counter * sizeof(VertexNode));
         VertexNode new_node = {.index=dfa_counter, .next_edge=nullptr};
         dfa->Graph[dfa_counter++] = new_node;
@@ -609,10 +606,96 @@ public:
         for (int i = 0; i < Dtran.size(); i++) {
             if (Dtran[i].find(nfa_end) != Dtran[i].end()) {
                 // 如果Dtran中某个状态中包含nfa的终止状态，则我们称这个状态为dfa的接受状态
-                dfa_end.push_back(i);
+                dfa_end.insert(i);
             }
 
         }
+        return dfa;
+    }
+
+
+    FA *minimize_dfa(FA *dfa) {
+        // 构造非接受状态集
+        // 其中，first为状态集，second标记它们是接受状态集还是非接受状态集
+        pair<set<int>, int> non_end_dfa_part, end_dfa_part = make_pair(dfa_end, 1);;
+        non_end_dfa_part.second = 0;
+        for (int i = 0; i < dfa_counter; i++) {
+            if (dfa_end.find(i) == dfa_end.end()) {
+                non_end_dfa_part.first.insert(i);
+            }
+        }
+
+        //
+        vector<pair<set<int>, int>> partition;
+        partition.push_back(non_end_dfa_part);
+        partition.push_back(end_dfa_part);
+        int cur_i = 0;
+        while (cur_i < partition.size()) {
+            pair<set<int>, int> curr_part = partition[cur_i];
+            if (curr_part.first.empty()) {
+                cur_i++;
+                continue;
+            }
+            bool back_begin = false;
+            vector<int> need_split;
+            for (int i = 0; i < seen_char.size() - 1; i++) {
+                EdgeNode *next_e;
+                int trans_to_part = -1;
+                // 遍历每个字符集，查看对于字符集中的字符a来说，这个状态集中的状态转换仍然在状态集中
+                for (auto it = curr_part.first.begin(); it != curr_part.first.end(); it++) {
+                    // 遍历每个划分part的元素*it
+                    // 查看这个元素的转换
+                    int trans = *it;
+                    next_e = dfa->Graph[trans].next_edge;
+                    if (next_e == nullptr) continue;
+                    do {
+                        if (next_e->data == seen_char[i]) {
+                            // 查看它属于当前partition的哪个part里
+                            int current_trans_to_part = belong(next_e->adjvex, partition);
+                            if (trans_to_part==-1) trans_to_part=current_trans_to_part;
+                            else if (trans_to_part!=current_trans_to_part){
+                                need_split.push_back(trans);
+                            }
+                        }
+                        next_e = next_e->next;
+                    } while (next_e != nullptr);
+                }
+            }
+
+            for(int i=0;i<need_split.size();i++){
+                // 这个元素的转换结果不属于之前的part，需要将其拆分出去
+                partition[cur_i].first.erase(need_split[i]);
+                pair<set<int>, int> new_part = make_pair(set<int>{need_split[i]}, curr_part.second);
+                partition.push_back(new_part);
+                back_begin = true;
+            }
+
+            if (back_begin) cur_i = 0;
+            else cur_i++;
+        }
+        // 重新对dfa进行设置
+
+        for(int i=0;i<partition.size();i++){
+            auto part = partition[i].first;
+            // 获取选择的元素
+            int select_status;
+            if(part.find(dfa->start)!=part.end()){
+                // 不改变开始状态
+                select_status=dfa->start;
+                part.erase(dfa->start);
+            } else{
+                // 这个part不包含开始状态，直接取第一个元素即可
+                select_status=*part.begin();
+                part.erase(part.begin());
+            }
+            // 此时part中剩余的元素在图中即可删除，重新构造图
+            for(int j=0;j<)
+
+
+
+        }
+        dfa_counter=partition.size();
+        // todo 邻接表元素的删除，重新构造dfa
         return dfa;
     }
 };
@@ -622,13 +705,15 @@ int main() {
     // 定义 ^ 代表空串 & 代表连接
     // . 在构建nfa状态转换图时，直接视作普通字符
 //    string re = "ab(c|a)?";
-    string re = "gaho(tx)?";
+    string re = "(a|b)*abb";
 
     NFATools tools = NFATools();
     FA *result = tools.construct(re);
     tools.show_nfa(result);
     FA *dfa = tools.n2d(result);
     tools.show_dfa(dfa);
+    dfa = tools.minimize_dfa(dfa);
+//    tools.show_dfa(dfa);
     return 0;
 
     // leetcode:https://leetcode.cn/problems/Valid-Number/
