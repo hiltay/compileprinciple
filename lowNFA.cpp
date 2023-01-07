@@ -329,7 +329,7 @@ public:
         // todo see:https://segmentfault.com/a/1190000018258326
         for (int i = 0; i < postfix_exp.size(); i++) {
             char current_char = postfix_exp[i];
-            cout << "current char:" << current_char << endl;
+//            cout << "current char:" << current_char << endl;
             if (is_character(current_char) || current_char == '.') {
                 // 如果是字符，构建子NFA，并将其NFA的节点索引入栈
                 EdgeNode *edge = new EdgeNode(nfa_counter + 1, current_char);
@@ -621,8 +621,8 @@ int main() {
     // 正则表达式支持：字母、数字、下划线，特殊字符. + ? * | ，小括号()
     // 定义 ^ 代表空串 & 代表连接
     // . 在构建nfa状态转换图时，直接视作普通字符
-    string re = "ab(c|a)?";
-//    string re = "ab*";  todo DFA的终态就是所有包含了NFA终态的DFA的状态。   ***********
+//    string re = "ab(c|a)?";
+    string re = "gaho(tx)?";
 
     NFATools tools = NFATools();
     FA *result = tools.construct(re);
