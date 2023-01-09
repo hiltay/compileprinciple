@@ -31,17 +31,12 @@ typedef struct FA {
     VertexNode Graph[];
 } FA;
 
-class NFATools {
+class FATools {
+
+    friend bool re_equals(string &r1, string &r2);
+
 private:
-    // nfa、dfa图的自增标号
-    int nfa_counter = 0;
-    // nfa的终止状态
-    int nfa_end;
-    // dfa的终止状态集
-    set<int> dfa_end;
-    int dfa_counter = 0;
-    // 动态分配内存？todo
-    string seen_char;
+
 
     bool is_character(char c) {
         // 数字字母下划线被认为是普通字符
@@ -294,7 +289,7 @@ private:
         return result;
     }
 
-    bool set_is_equal(set<int> &s1, set<int> &s2) {
+    static bool set_is_equal(set<int> &s1, set<int> &s2) {
         if (s1.size() != s2.size()) return false;
         for (auto it1 = s1.begin(), it2 = s2.begin(); it1 != s1.end(); it1++, it2++) {
             if (*it1 != *it2) return false;
@@ -326,7 +321,7 @@ private:
     }
 
     void delete_replace_dfa(FA *dfa, int delete_index, int replace_index) {
-        if (delete_index>=dfa_counter) return;
+        if (delete_index >= dfa_counter) return;
         // 从dfa图中删除delete_index位置的元素，将指向delete_index的边替换为replace_index位置
         // 1、删除索引为delete_index顶点连接的边
         delete dfa->Graph[delete_index].next_edge;
@@ -354,6 +349,15 @@ private:
 
 
 public:
+    // nfa、dfa图的自增标号
+    int nfa_counter = 0;
+    // nfa的终止状态
+    int nfa_end;
+    // dfa的终止状态集
+    set<int> dfa_end;
+    int dfa_counter = 0;
+    string seen_char;
+
     FA *construct(const string &re) {
         // 得到后缀表达式
         string postfix_exp = convert_postfix_exp(re);
@@ -680,11 +684,11 @@ public:
                     next_e = dfa->Graph[trans].next_edge;
                     bool find_char = false;
                     if (next_e == nullptr) {
-                        if (trans_to_part!=-1){
+                        if (trans_to_part != -1) {
                             // 需要切分
                             need_split.insert(trans);
                             find_char = true;
-                        }else{
+                        } else {
                             trans_to_part = -2;
                             find_char = false;
                         }
@@ -703,7 +707,7 @@ public:
                             }
                             next_e = next_e->next;
                         } while (next_e != nullptr);
-                    if (!find_char && trans_to_part==-1){
+                    if (!find_char && trans_to_part == -1) {
                         // 第一个状态没有当前字符的转换，标记为-2
                         trans_to_part = -2;
                     }
@@ -714,7 +718,7 @@ public:
                 }
             }
 
-            for (auto it = need_split.begin(); it!=need_split.end(); it++) {
+            for (auto it = need_split.begin(); it != need_split.end(); it++) {
                 // 这个元素的转换结果不属于之前的part，需要将其拆分出去
                 partition[cur_i].first.erase(*it);
                 pair<set<int>, int> new_part = make_pair(set<int>{*it}, curr_part.second);
@@ -752,21 +756,85 @@ public:
     }
 };
 
+bool re_equals(string &r1, string &r2) {
+    FATools d1_tools = FATools();
+    FATools d2_tools = FATools();
+    FA *dfa1 = d1_tools.minimize_dfa(d1_tools.n2d(d1_tools.construct(r1)));
+    FA *dfa2 = d2_tools.minimize_dfa(d2_tools.n2d(d2_tools.construct(r2)));
+    d1_tools.show_dfa(dfa1);
+    d2_tools.show_dfa(dfa2);
+
+    // 同时遍历两个dfa
+    if (dfa1->start != dfa2->start) return false; // 起始状态不同
+    if (!FATools::set_is_equal(d1_tools.dfa_end, d2_tools.dfa_end)) return false; // 接受状态不一致
+
+
+
+    // 已遍历的节点保存，防止重复遍历
+    set<int> dup_check;
+    // 辅助栈记录需要遍历的起始索引
+    stack<int> iter_start_status;
+    iter_start_status.push(dfa1->start);
+    while (!iter_start_status.empty()) {
+        int current_index = iter_start_status.top();
+        iter_start_status.pop();
+        if (dup_check.find(current_index) != dup_check.end()) continue;
+        EdgeNode *next_e1 = dfa1->Graph[current_index].next_edge;
+        EdgeNode *next_e2 = dfa2->Graph[current_index].next_edge;
+        if (next_e1 == nullptr && next_e2 != nullptr || next_e1 != nullptr && next_e2 == nullptr) {
+            // 一个有出边一个没有出边
+            return false;
+        } else if (next_e1 != nullptr && next_e2 != nullptr) {
+            // 两个出边都不为空
+            unordered_map<int, char> transfrom;
+            int adjvex1_num = 0;
+            int adjvex2_num = 0;
+            do {
+                if (dup_check.find(next_e1->adjvex) == dup_check.end())
+                    // 如果之前没有遍历过，则将节点入栈
+                    iter_start_status.push(next_e1->adjvex);
+                transfrom[next_e1->adjvex] = next_e1->data;
+                next_e1 = next_e1->next;
+                adjvex1_num++;
+            } while (next_e1 != nullptr);
+            // 验证next_e2
+            do {
+                if (transfrom.find(next_e2->adjvex) == transfrom.end()) {
+                    // next_e2没有找到对应的出边
+                    return false;
+                }
+                next_e2 = next_e2->next;
+                adjvex2_num++;
+            } while (next_e2 != nullptr);
+            if (adjvex1_num != adjvex2_num)
+                // 出边数量不相等
+                return false;
+        }
+        dup_check.insert(current_index);
+    }
+    return true;
+
+
+}
+
 int main() {
     // 正则表达式支持：字母、数字、下划线，特殊字符. + ? * | ，小括号()
     // 定义 ^ 代表空串 & 代表连接
     // . 在构建nfa状态转换图时，直接视作普通字符
 //    string re = "ab(c|a)?";
-    string re = "(a|b)+";
-
-    NFATools tools = NFATools();
-    FA *result = tools.construct(re);
-    tools.show_nfa(result);
-    FA *dfa = tools.n2d(result);
-    tools.show_dfa(dfa);
-    dfa = tools.minimize_dfa(dfa);
-    tools.show_dfa(dfa);
+//    string re = "(a|b)+";
+//
+//    FATools tools = FATools();
+//    FA *result = tools.construct(re);
+//    tools.show_nfa(result);
+//    FA *dfa = tools.n2d(result);
+//    tools.show_dfa(dfa);
+//    dfa = tools.minimize_dfa(dfa);
+//    tools.show_dfa(dfa);
+//    return 0;
+    string re1 = "ab(c|a)?";
+    string re2 = "ab(c|a)";
+    cout << re_equals(re1, re2);
     return 0;
-
     // leetcode:https://leetcode.cn/problems/Valid-Number/
 }
