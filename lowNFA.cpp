@@ -734,6 +734,7 @@ public:
         dfa_end.clear();
         for (int i = 0; i < partition.size(); i++) {
             auto part = partition[i].first;
+            if (part.empty()) continue;
             // 获取选择的元素
             int select_status;
             if (part.find(dfa->start) != part.end()) {
@@ -832,8 +833,91 @@ int main() {
 //    dfa = tools.minimize_dfa(dfa);
 //    tools.show_dfa(dfa);
 //    return 0;
-    string re1 = "ab(c|a)?";
-    string re2 = "ab(c|a)";
+
+
+/*附：测试样例和答案
+
+a?
+
+a|e             YES
+
+
+
+b*|a+
+
+a+|b*           YES
+
+
+
+aa*|bb*
+
+b+|a+           YES
+
+
+
+e+++++*?*?*?++
+
+eeee            YES
+
+
+
+(a|b)(a|b)
+
+aa|ab|bb        NO
+
+
+
+(a|b)*
+
+((e|a)b*)*      YES
+
+
+
+a+(aa)+
+
+(aa)+a          NO
+
+
+
+a+(aa)+
+
+(aa)+a+         YES
+
+
+
+d*c+d?c*
+
+d*c*d?c*        NO
+
+
+
+
+
+(a|b)|(c|d)
+
+(c|d)|(a|b)     YES
+
+
+
+(a|b)*a(a|b)(a|b)(a|b)(a|b)(a|b)(a|b)(a|b)(a|b)(a|b)
+
+(a|b)*b(a|b)(a|b)(a|b)(a|b)(a|b)(a|b)(a|b)(a|b)(a|b)    NO
+
+
+
+(a|b)*a(a|b)(a|b)(a|b)(a|b)(a|b)(a|b)(a|b)(a|b)(a|b)
+
+(a|b)*a(a|b)(a|b)(a|b)(a|b)(a|b)(a|b)(a|b)(a|b)(a|b)    YES
+
+
+
+b*a*b?a*
+
+b*((a|ab)*|(a|ba)*)             NO
+ *
+ * */
+    string re1 = "b*|a+";
+    string re2 = "a+|b*";
     cout << re_equals(re1, re2);
     return 0;
     // leetcode:https://leetcode.cn/problems/Valid-Number/
