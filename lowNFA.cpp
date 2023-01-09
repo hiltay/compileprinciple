@@ -766,8 +766,11 @@ bool re_equals(string &r1, string &r2) {
     d2_tools.show_dfa(dfa2);
 
     // 同时遍历两个dfa
-    if (dfa1->start != dfa2->start) return false; // 起始状态不同
-    if (!FATools::set_is_equal(d1_tools.dfa_end, d2_tools.dfa_end)) return false; // 接受状态不一致
+    // 直接返回false的情况：起始状态不同、dfa状态数不同、接受状态不同
+    if ((dfa1->start != dfa2->start)
+        || (d1_tools.dfa_counter != d2_tools.dfa_counter)
+        || (!FATools::set_is_equal(d1_tools.dfa_end, d2_tools.dfa_end)))
+        return false;
 
 
 
@@ -916,8 +919,8 @@ b*a*b?a*
 b*((a|ab)*|(a|ba)*)             NO
  *
  * */
-    string re1 = "b*|a+";
-    string re2 = "a+|b*";
+    string re1 = "(a|b)(a|b)";
+    string re2 = "aa|ab|bb";
     cout << re_equals(re1, re2);
     return 0;
     // leetcode:https://leetcode.cn/problems/Valid-Number/
