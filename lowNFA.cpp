@@ -349,14 +349,18 @@ private:
 
 
 public:
-    // nfa、dfa图的自增标号
+    // nfa图的自增标号
     int nfa_counter = 0;
     // nfa的终止状态
     int nfa_end;
     // dfa的终止状态集
     set<int> dfa_end;
+    // dfa图的自增标号
     int dfa_counter = 0;
+    // 出现的字符
     string seen_char;
+    // alloc memorys
+    unsigned long alloc_mem = 0;
 
     FA *construct(const string &re) {
         // 得到后缀表达式
@@ -548,7 +552,7 @@ public:
         cout << "状态数：" << dfa_counter << "\t";
         cout << "开始状态：" << dfa->start << "\t" << "接受状态：";
         for (auto it = dfa_end.begin(); it != dfa_end.end(); it++) {
-            cout << *it;
+            cout << *it << ",";
         }
         cout << endl << setw(4);
         for (int i = 0; i < seen_char.size() - 1; i++) {
@@ -584,7 +588,9 @@ public:
         st.push(make_pair(result, dfa_counter));
         // 构建能容纳字符长度的NFA，dfa的状态数可能是对应nfa的状态数的指数（实践中一般不会）
         // 最坏情况，假设nfa状态数为n，dfa状态数可能为2^n
-        FA *dfa = (FA *) malloc(sizeof(struct FA) + 100 * nfa_counter * sizeof(VertexNode));
+        // 首先分配一个100倍nfa状态数量的空间作为dfa状态，即我们假设构建的dfa状态数是nfa状态数的不超过100倍
+        alloc_mem = nfa_counter * 100;
+        FA *dfa = (FA *) malloc(sizeof(struct FA) + alloc_mem * sizeof(VertexNode));
         VertexNode new_node = {.index=dfa_counter, .next_edge=nullptr};
         dfa->Graph[dfa_counter++] = new_node;
 
@@ -619,7 +625,11 @@ public:
                         tmp_edge->next = edge;
                     }
                     // 添加新状态
-                    dfa->Graph[dfa_counter++] = node;
+                    dfa->Graph[dfa_counter] = node;
+                    if (++dfa_counter == alloc_mem) {
+                        // 如果dfa状态数超过了已分配的内存，需要扩容
+                        dfa = (FA *) realloc(dfa, alloc_mem *= 2);
+                    }
                 } else {
                     // 旧状态，构造图
                     EdgeNode *edge = new EdgeNode(new_status_index, seen_char[i]);
@@ -762,8 +772,8 @@ bool re_equals(string &r1, string &r2) {
     FATools d2_tools = FATools();
     FA *dfa1 = d1_tools.minimize_dfa(d1_tools.n2d(d1_tools.construct(r1)));
     FA *dfa2 = d2_tools.minimize_dfa(d2_tools.n2d(d2_tools.construct(r2)));
-    d1_tools.show_dfa(dfa1);
-    d2_tools.show_dfa(dfa2);
+//    d1_tools.show_dfa(dfa1);
+//    d2_tools.show_dfa(dfa2);
 
     // 同时遍历两个dfa
     // 直接返回false的情况：起始状态不同、dfa状态数不同、接受状态不同
@@ -822,7 +832,7 @@ bool re_equals(string &r1, string &r2) {
 }
 
 
-void test(string & re){
+void test(string &re) {
 
     FATools tools = FATools();
     FA *result = tools.construct(re);
@@ -833,97 +843,15 @@ void test(string & re){
     tools.show_dfa(dfa);
 
 }
+
 int main() {
     // 正则表达式支持：字母、数字、下划线，特殊字符. + ? * | ，小括号()
     // 定义 ^ 代表空串 & 代表连接
     // . 在构建nfa状态转换图时，直接视作普通字符
-
-
-
-/*附：测试样例和答案
-
-a?
-
-a|e             YES
-
-
-
-b*|a+
-
-a+|b*           YES
-
-
-
-aa*|bb*
-
-b+|a+           YES
-
-
-
-e+++++*?*?*?++
-
-eeee            YES
-
-
-
-(a|b)(a|b)
-
-aa|ab|bb        NO
-
-
-
-(a|b)*
-
-((e|a)b*)*      YES
-
-
-
-a+(aa)+
-
-(aa)+a          NO
-
-
-
-a+(aa)+
-
-(aa)+a+         YES
-
-
-
-d*c+d?c*
-
-d*c*d?c*        NO
-
-
-
-
-
-(a|b)|(c|d)
-
-(c|d)|(a|b)     YES
-
-
-
-(a|b)*a(a|b)(a|b)(a|b)(a|b)(a|b)(a|b)(a|b)(a|b)(a|b)
-
-(a|b)*b(a|b)(a|b)(a|b)(a|b)(a|b)(a|b)(a|b)(a|b)(a|b)    NO
-
-
-
-(a|b)*a(a|b)(a|b)(a|b)(a|b)(a|b)(a|b)(a|b)(a|b)(a|b)
-
-(a|b)*a(a|b)(a|b)(a|b)(a|b)(a|b)(a|b)(a|b)(a|b)(a|b)    YES
-
-
-
-b*a*b?a*
-
-b*((a|ab)*|(a|ba)*)             NO
- *
- * */
-    string re1 = "a+(aa)+";
-    string re2 = "(aa)+a+";
-    cout << re_equals(re1, re2);
+    cout<<"判断两个正则表达式是否等价："<<endl;
+    string re1 = "a+|b+";
+    string re2 = "b+|a+";
+    cout << (re_equals(re1, re2) ?"等价" : "不等价");
 //    test(re1);
     return 0;
     // leetcode:https://leetcode.cn/problems/Valid-Number/
