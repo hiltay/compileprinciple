@@ -326,6 +326,7 @@ private:
     }
 
     void delete_replace_dfa(FA *dfa, int delete_index, int replace_index) {
+        if (delete_index>=dfa_counter) return;
         // 从dfa图中删除delete_index位置的元素，将指向delete_index的边替换为replace_index位置
         // 1、删除索引为delete_index顶点连接的边
         delete dfa->Graph[delete_index].next_edge;
@@ -741,7 +742,7 @@ public:
                 part.erase(part.begin());
             }
             // 此时part中剩余的元素在图中即可删除，重新构造图
-            for (auto it = part.begin(); it != part.end(); it++) {
+            for (auto it = part.end(); it != part.begin(); it--) {
                 // 删除这些元素
                 delete_replace_dfa(dfa, *it, select_status);
             }
@@ -756,7 +757,7 @@ int main() {
     // 定义 ^ 代表空串 & 代表连接
     // . 在构建nfa状态转换图时，直接视作普通字符
 //    string re = "ab(c|a)?";
-    string re = "(a|b)*abb";
+    string re = "(a|b)+";
 
     NFATools tools = NFATools();
     FA *result = tools.construct(re);
