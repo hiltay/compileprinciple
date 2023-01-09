@@ -317,12 +317,39 @@ private:
 
     int belong(int i, vector<pair<set<int>, int>> &S) {
         // 查看i在S中的位置，没找到则为-1
-        for(int it=0;it<S.size();it++){
-            if(S[it].first.find(i)!=S[it].first.end()) return it;
+        for (int it = 0; it < S.size(); it++) {
+            if (S[it].first.find(i) != S[it].first.end()) return it;
         }
 
         return -1;
     }
+
+    void delete_replace_dfa(FA *dfa, int delete_index, int replace_index) {
+        // 从dfa图中删除delete_index位置的元素，将指向delete_index的边替换为replace_index位置
+        // 1、删除索引为delete_index顶点连接的边
+        delete dfa->Graph[delete_index].next_edge;
+        dfa->Graph[delete_index].next_edge = nullptr;
+        // 2、删除索引为delete_index的顶点，将大于delete_index的顶点顺序向前移动
+        for(int i=delete_index;i<dfa_counter-1;i++){
+            dfa->Graph[i] = dfa->Graph[i+1];
+        }
+        dfa_counter--;
+        // 3、遍历dfa的边，将与指向索引为delete_index的边替换为replace_index，并将大于delete_index的边结点adjvex减一
+        for(int i=0;i<dfa_counter;i++){
+            EdgeNode * next_e = dfa->Graph[i].next_edge;
+            if (next_e != nullptr) {
+                do {
+                    if(next_e->adjvex==delete_index) next_e->adjvex=replace_index;
+                    else if (next_e->adjvex>delete_index) next_e->adjvex--;
+                    next_e = next_e->next;
+                } while (next_e != nullptr);
+            }
+            if (i>=delete_index){
+                dfa->Graph[i].index--;
+            }
+        }
+    }
+
 
 public:
     FA *construct(const string &re) {
@@ -652,8 +679,8 @@ public:
                         if (next_e->data == seen_char[i]) {
                             // 查看它属于当前partition的哪个part里
                             int current_trans_to_part = belong(next_e->adjvex, partition);
-                            if (trans_to_part==-1) trans_to_part=current_trans_to_part;
-                            else if (trans_to_part!=current_trans_to_part){
+                            if (trans_to_part == -1) trans_to_part = current_trans_to_part;
+                            else if (trans_to_part != current_trans_to_part) {
                                 need_split.push_back(trans);
                             }
                         }
@@ -662,7 +689,7 @@ public:
                 }
             }
 
-            for(int i=0;i<need_split.size();i++){
+            for (int i = 0; i < need_split.size(); i++) {
                 // 这个元素的转换结果不属于之前的part，需要将其拆分出去
                 partition[cur_i].first.erase(need_split[i]);
                 pair<set<int>, int> new_part = make_pair(set<int>{need_split[i]}, curr_part.second);
@@ -674,28 +701,28 @@ public:
             else cur_i++;
         }
         // 重新对dfa进行设置
-
-        for(int i=0;i<partition.size();i++){
+        // 首先清空dfa当前的接受状态
+        dfa_end.clear();
+        for (int i = 0; i < partition.size(); i++) {
             auto part = partition[i].first;
             // 获取选择的元素
             int select_status;
-            if(part.find(dfa->start)!=part.end()){
+            if (part.find(dfa->start) != part.end()) {
                 // 不改变开始状态
-                select_status=dfa->start;
+                select_status = dfa->start;
                 part.erase(dfa->start);
-            } else{
+            } else {
                 // 这个part不包含开始状态，直接取第一个元素即可
-                select_status=*part.begin();
+                select_status = *part.begin();
                 part.erase(part.begin());
             }
             // 此时part中剩余的元素在图中即可删除，重新构造图
-            for(int j=0;j<)
-
-
-
+            for (auto it = part.begin(); it != part.end(); it++) {
+                // 删除这些元素
+                delete_replace_dfa(dfa, *it, select_status);
+            }
+            if (partition[i].second==1) dfa_end.insert(select_status);
         }
-        dfa_counter=partition.size();
-        // todo 邻接表元素的删除，重新构造dfa
         return dfa;
     }
 };
@@ -713,7 +740,7 @@ int main() {
     FA *dfa = tools.n2d(result);
     tools.show_dfa(dfa);
     dfa = tools.minimize_dfa(dfa);
-//    tools.show_dfa(dfa);
+    tools.show_dfa(dfa);
     return 0;
 
     // leetcode:https://leetcode.cn/problems/Valid-Number/
