@@ -40,7 +40,7 @@ private:
 
     bool is_character(char c) {
         // 数字字母下划线被认为是普通字符
-        return isalnum(c) || c == '_' || c == '.';
+        return isalnum(c) || c == '_' || c == '.' || c == ' ';
     }
 
     bool is_special_character(char c) {
@@ -831,6 +831,48 @@ bool re_equals(string &r1, string &r2) {
 
 }
 
+bool match(string &pattern, string &str) {
+    // 给定一个pattern，判断str是否能够被pattern所接受
+    FATools tools = FATools();
+    FA *dfa = tools.minimize_dfa(tools.n2d(tools.construct(pattern)));
+
+    // 辅助栈记录需要遍历的起始索引
+    stack<int> iter_start_status;
+    iter_start_status.push(dfa->start);
+    for (auto c: str) {
+        if (iter_start_status.empty())
+            return false;
+        int current_index = iter_start_status.top();
+        iter_start_status.pop();
+        EdgeNode *next_e = dfa->Graph[current_index].next_edge;
+        if (next_e == nullptr) return false;
+        bool find = false;
+        do {
+            if (next_e->data == c || next_e->data == '.') {
+                // 如果出边存在到达字符c的转换，则将节点入栈
+                iter_start_status.push(next_e->adjvex);
+                find = true;
+            }
+            next_e = next_e->next;
+        } while (next_e != nullptr);
+        if (!find) return false;
+
+    }
+
+    // 如果前面的字符可以接受，那就看此时栈中的字符有没有存在于接受状态集合中
+    if (iter_start_status.empty()) return true;
+    while (!iter_start_status.empty()) {
+        int current_index = iter_start_status.top();
+        iter_start_status.pop();
+        if (tools.dfa_end.find(current_index) != tools.dfa_end.end()) {
+            return true;
+        }
+    }
+    // 否则返回false
+    return false;
+
+}
+
 
 void test(string &re) {
 
@@ -848,11 +890,14 @@ int main() {
     // 正则表达式支持：字母、数字、下划线，特殊字符. + ? * | ，小括号()
     // 定义 ^ 代表空串 & 代表连接
     // . 在构建nfa状态转换图时，直接视作普通字符
-    cout<<"判断两个正则表达式是否等价："<<endl;
-    string re1 = "a+|b+";
-    string re2 = "b+|a+";
-    cout << (re_equals(re1, re2) ?"等价" : "不等价");
+//    cout << "判断两个正则表达式是否等价：" << endl;
+    string re1 = "gaho..";
+    string str = "gahotx";
+//    string re2 = "b+|a+";
+//    cout << (re_equals(re1, re2) ? "等价" : "不等价");
 //    test(re1);
+    cout << (match(re1, str) ? "true" : "false");
+
     return 0;
     // leetcode:https://leetcode.cn/problems/Valid-Number/
 }
