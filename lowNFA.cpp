@@ -747,7 +747,7 @@ public:
                 part.erase(part.begin());
             }
             // 此时part中剩余的元素在图中即可删除，重新构造图
-            for (auto it = part.end(); it != part.begin(); it--) {
+            for (auto it = part.rbegin(); it != part.rend(); it++) {
                 // 删除这些元素
                 delete_replace_dfa(dfa, *it, select_status);
             }
@@ -821,21 +821,23 @@ bool re_equals(string &r1, string &r2) {
 
 }
 
+
+void test(string & re){
+
+    FATools tools = FATools();
+    FA *result = tools.construct(re);
+    tools.show_nfa(result);
+    FA *dfa = tools.n2d(result);
+    tools.show_dfa(dfa);
+    dfa = tools.minimize_dfa(dfa);
+    tools.show_dfa(dfa);
+
+}
 int main() {
     // 正则表达式支持：字母、数字、下划线，特殊字符. + ? * | ，小括号()
     // 定义 ^ 代表空串 & 代表连接
     // . 在构建nfa状态转换图时，直接视作普通字符
-//    string re = "ab(c|a)?";
-//    string re = "(a|b)+";
-//
-//    FATools tools = FATools();
-//    FA *result = tools.construct(re);
-//    tools.show_nfa(result);
-//    FA *dfa = tools.n2d(result);
-//    tools.show_dfa(dfa);
-//    dfa = tools.minimize_dfa(dfa);
-//    tools.show_dfa(dfa);
-//    return 0;
+
 
 
 /*附：测试样例和答案
@@ -919,9 +921,10 @@ b*a*b?a*
 b*((a|ab)*|(a|ba)*)             NO
  *
  * */
-    string re1 = "(a|b)(a|b)";
-    string re2 = "aa|ab|bb";
+    string re1 = "a+(aa)+";
+    string re2 = "(aa)+a+";
     cout << re_equals(re1, re2);
+//    test(re1);
     return 0;
     // leetcode:https://leetcode.cn/problems/Valid-Number/
 }
