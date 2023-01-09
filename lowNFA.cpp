@@ -134,11 +134,12 @@ private:
                 // 将其添加到输出中
                 postfix_exp += cur_elem;
             } else if (is_open_parenthesis(cur_elem)) {
-                // 在入栈之前检查上一个字符是否为普通字符或者除了左括号以外的特殊字符
+                // 在入栈之前检查上一个字符是否为普通字符或者除了左括号、|以外的特殊字符
                 // 例如： a( *( )(
                 if (last_char != -1) {
 //                    char last_char = infix_exp[i - 1];
-                    if (is_character(last_char) || is_special_character(last_char) || is_close_parenthesis(last_char)) {
+                    if (is_character(last_char) || (is_special_character(last_char) && last_char != '|') ||
+                        is_close_parenthesis(last_char)) {
                         // 加入连接符 &
                         while (!operators.empty() && priority('&') <= priority(operators.top())) {
                             // 比较当前字符和运算符栈顶字符的优先级，如果当前字符的优先级小
@@ -330,21 +331,21 @@ private:
         delete dfa->Graph[delete_index].next_edge;
         dfa->Graph[delete_index].next_edge = nullptr;
         // 2、删除索引为delete_index的顶点，将大于delete_index的顶点顺序向前移动
-        for(int i=delete_index;i<dfa_counter-1;i++){
-            dfa->Graph[i] = dfa->Graph[i+1];
+        for (int i = delete_index; i < dfa_counter - 1; i++) {
+            dfa->Graph[i] = dfa->Graph[i + 1];
         }
         dfa_counter--;
         // 3、遍历dfa的边，将与指向索引为delete_index的边替换为replace_index，并将大于delete_index的边结点adjvex减一
-        for(int i=0;i<dfa_counter;i++){
-            EdgeNode * next_e = dfa->Graph[i].next_edge;
+        for (int i = 0; i < dfa_counter; i++) {
+            EdgeNode *next_e = dfa->Graph[i].next_edge;
             if (next_e != nullptr) {
                 do {
-                    if(next_e->adjvex==delete_index) next_e->adjvex=replace_index;
-                    else if (next_e->adjvex>delete_index) next_e->adjvex--;
+                    if (next_e->adjvex == delete_index) next_e->adjvex = replace_index;
+                    else if (next_e->adjvex > delete_index) next_e->adjvex--;
                     next_e = next_e->next;
                 } while (next_e != nullptr);
             }
-            if (i>=delete_index){
+            if (i >= delete_index) {
                 dfa->Graph[i].index--;
             }
         }
@@ -355,6 +356,7 @@ public:
     FA *construct(const string &re) {
         // 得到后缀表达式
         string postfix_exp = convert_postfix_exp(re);
+//        postfix_exp = "ab|cd||";
         // 确定最大状态数，以分配邻接表内存
         auto max_state_num = postfix_exp.size() * 2;
         // 构建能容纳字符长度的NFA
@@ -664,35 +666,57 @@ public:
                 continue;
             }
             bool back_begin = false;
-            vector<int> need_split;
+            set<int> need_split;
             for (int i = 0; i < seen_char.size() - 1; i++) {
                 EdgeNode *next_e;
+                // 记录上一次状态的出边到达的状态，初始为-1，如果是到达空边，赋值为-2
                 int trans_to_part = -1;
-                // 遍历每个字符集，查看对于字符集中的字符a来说，这个状态集中的状态转换仍然在状态集中
+                // 遍历每个字符集，查看对于字符集中的字符a来说，这个状态集中的状态转换仍然都在同一个状态集中
                 for (auto it = curr_part.first.begin(); it != curr_part.first.end(); it++) {
                     // 遍历每个划分part的元素*it
                     // 查看这个元素的转换
                     int trans = *it;
                     next_e = dfa->Graph[trans].next_edge;
-                    if (next_e == nullptr) continue;
-                    do {
-                        if (next_e->data == seen_char[i]) {
-                            // 查看它属于当前partition的哪个part里
-                            int current_trans_to_part = belong(next_e->adjvex, partition);
-                            if (trans_to_part == -1) trans_to_part = current_trans_to_part;
-                            else if (trans_to_part != current_trans_to_part) {
-                                need_split.push_back(trans);
-                            }
+                    bool find_char = false;
+                    if (next_e == nullptr) {
+                        if (trans_to_part!=-1){
+                            // 需要切分
+                            need_split.insert(trans);
+                            find_char = true;
+                        }else{
+                            trans_to_part = -2;
+                            find_char = false;
                         }
-                        next_e = next_e->next;
-                    } while (next_e != nullptr);
+
+                    } else
+                        do {
+                            if (next_e->data == seen_char[i]) {
+                                find_char = true;
+                                // 查看它属于当前partition的哪个part里
+                                int current_trans_to_part = belong(next_e->adjvex, partition);
+                                if (trans_to_part == -1) trans_to_part = current_trans_to_part;
+                                else if (trans_to_part != current_trans_to_part) {
+                                    // 需要切分
+                                    need_split.insert(trans);
+                                }
+                            }
+                            next_e = next_e->next;
+                        } while (next_e != nullptr);
+                    if (!find_char && trans_to_part==-1){
+                        // 第一个状态没有当前字符的转换，标记为-2
+                        trans_to_part = -2;
+                    }
+                    if (!find_char && trans_to_part != -1 && trans_to_part != -2) {
+                        // 需要切分
+                        need_split.insert(trans);
+                    }
                 }
             }
 
-            for (int i = 0; i < need_split.size(); i++) {
+            for (auto it = need_split.begin(); it!=need_split.end(); it++) {
                 // 这个元素的转换结果不属于之前的part，需要将其拆分出去
-                partition[cur_i].first.erase(need_split[i]);
-                pair<set<int>, int> new_part = make_pair(set<int>{need_split[i]}, curr_part.second);
+                partition[cur_i].first.erase(*it);
+                pair<set<int>, int> new_part = make_pair(set<int>{*it}, curr_part.second);
                 partition.push_back(new_part);
                 back_begin = true;
             }
@@ -721,7 +745,7 @@ public:
                 // 删除这些元素
                 delete_replace_dfa(dfa, *it, select_status);
             }
-            if (partition[i].second==1) dfa_end.insert(select_status);
+            if (partition[i].second == 1) dfa_end.insert(select_status);
         }
         return dfa;
     }
