@@ -891,8 +891,8 @@ int main() {
     // 定义 ^ 代表空串 & 代表连接
     // . 在构建nfa状态转换图时，直接视作普通字符
 //    cout << "判断两个正则表达式是否等价：" << endl;
-    string re1 = "gaho..";
-    string str = "gahotx";
+    string re1 = "http(s)?://anzhiy.cn";
+    string str = "http://anzhiy.cn"; // fixme?
 //    string re2 = "b+|a+";
 //    cout << (re_equals(re1, re2) ? "等价" : "不等价");
 //    test(re1);
