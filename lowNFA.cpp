@@ -214,7 +214,7 @@ private:
             postfix_exp += opt;
         }
         // 至此得到后缀表达式
-        cout << "输入的中缀表达式：" << infix << "\n对应的后缀表达式：" << postfix_exp << endl;
+//        cout << "输入的中缀表达式：" << infix << "\n对应的后缀表达式：" << postfix_exp << endl;
         // 获取正则出现的所有字符
         for (auto it = seen_character.begin(); it != seen_character.end(); it++) {
             seen_char += *it;
@@ -890,13 +890,18 @@ int main() {
     // 正则表达式支持：字母、数字、下划线，特殊字符. + ? * | ，小括号()
     // 定义 ^ 代表空串 & 代表连接
     // . 在构建nfa状态转换图时，直接视作普通字符
-//    cout << "判断两个正则表达式是否等价：" << endl;
-    string re1 = "http(s)?://anzhiy.cn";
-    string str = "http://anzhiy.cn"; // fixme?
-//    string re2 = "b+|a+";
-//    cout << (re_equals(re1, re2) ? "等价" : "不等价");
-//    test(re1);
-    cout << (match(re1, str) ? "true" : "false");
+    // 实现1：NFA-DFA-minimized DFA
+    string re1 = "(a|b)*abb";
+    test(re1);
+    // 实现2：判断两个正则表达式是否等价
+    cout << "判断两个正则表达式是否等价：" << endl;
+    string re2 = "a+|b+";
+    string re3 = "b+|a+";
+    cout << (re_equals(re2, re3) ? "等价" : "不等价");
+    // 实现3：正则匹配，查看某个字符串str能否被正则pattern接收
+    string pattern = "a+|b+";
+    string str = "b+|a+";
+    cout << (match(pattern, str) ? "true" : "false");
 
     return 0;
     // leetcode:https://leetcode.cn/problems/Valid-Number/
