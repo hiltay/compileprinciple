@@ -373,7 +373,7 @@ public:
         // 辅助栈，保存两个节点的索引和边的方向
         stack<pair<int, int>> assist;
 
-        // todo see:https://segmentfault.com/a/1190000018258326
+        // see:https://segmentfault.com/a/1190000018258326
         for (int i = 0; i < postfix_exp.size(); i++) {
             char current_char = postfix_exp[i];
 //            cout << "current char:" << current_char << endl;
