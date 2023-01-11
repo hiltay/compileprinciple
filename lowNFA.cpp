@@ -887,21 +887,23 @@ void test(string &re) {
 }
 
 int main() {
-    // 正则表达式支持：字母、数字、下划线，特殊字符. + ? * | ，小括号()
+    // 正则表达式支持：字母、数字、下划线，空格，特殊字符. + ? * | ，小括号()
     // 定义 ^ 代表空串 & 代表连接
     // . 在构建nfa状态转换图时，直接视作普通字符
     // 实现1：NFA-DFA-minimized DFA
+    cout << "实现1：NFA-DFA-minimized DFA：" << endl;
     string re1 = "(a|b)*abb";
     test(re1);
     // 实现2：判断两个正则表达式是否等价
-    cout << "判断两个正则表达式是否等价：" << endl;
+    cout << "实现2：判断两个正则表达式是否等价：" << endl;
     string re2 = "a+|b+";
     string re3 = "b+|a+";
-    cout << (re_equals(re2, re3) ? "等价" : "不等价");
+    cout << (re_equals(re2, re3) ? "等价" : "不等价")<<endl;
     // 实现3：正则匹配，查看某个字符串str能否被正则pattern接收
-    string pattern = "a+|b+";
-    string str = "b+|a+";
-    cout << (match(pattern, str) ? "true" : "false");
+    cout << "实现3：正则匹配，查看某个字符串str能否被正则pattern接收：" << endl;
+    string pattern = "(I|He) ha((v(e|ing))|d|s) an apple";
+    string str = "He have an apple";
+    cout << (match(pattern, str) ? "true" : "false")<<endl;
 
     return 0;
     // leetcode:https://leetcode.cn/problems/Valid-Number/
