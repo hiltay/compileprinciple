@@ -84,7 +84,6 @@ private:
 
     string std_infix(const string &infix) {
         string infix_exp = infix;
-        string result;
         // 记录上一个字符，初始为-1
         char last_char = -1;
         // 辅助栈 存放左括号的索引位置
@@ -95,36 +94,35 @@ private:
             if (cur_elem == '+') {
                 // 检查上一个字符，有两种情况：
                 // 1.上一个字符是右括号 `)`
-                if (last_char != -1 && is_close_parenthesis(last_char)) {
+                if (is_close_parenthesis(last_char)) {
                     // 栈顶元素出栈，该索引（记为start）与当前索引上一个索引（记为end）之间的元素都应该被重复一次
-                    int start = open_parenthesis_index.top();
+                    infix_exp.erase(i, 1);
+                    string sub_str = infix_exp.substr(open_parenthesis_index.top(), i-(int)open_parenthesis_index.top()) + '*';
                     open_parenthesis_index.pop();
-                    string replace_str = infix_exp.substr(start, i - start);
-                    result += replace_str + replace_str + '*';
+                    infix_exp.insert(i, sub_str);
+                    i += (int) sub_str.size()-1;
+                    last_char = '*';
+                    continue;
                 }
-                    // 2. 上一个字符不是右括号，在之前的逻辑应该已经被添加一次了，所以这里再添加一次即可
-                else if (last_char != -1) {
-                    if (open_parenthesis_index.empty()){
-                        result += last_char;
-                        result += '*';
-                    }else{
-                        result += last_char;
-                        result += last_char;
-                        result += '*';
-                    }
+                    // 2. 上一个字符不是右括号
+                else {
+                    infix_exp.erase(i, 1);
+                    std::string add_str(1, last_char);
+                    add_str += '*';
+                    infix_exp.insert(i, add_str);
+                    i++;
+                    last_char = '*';
+                    continue;
                 }
 
             } else if (is_open_parenthesis(cur_elem)) {
                 // 记录出现左括号的索引
                 open_parenthesis_index.push(i);
             }
-            else if (open_parenthesis_index.empty()) {
-                result += cur_elem;
-            }
             last_char = cur_elem;
         }
 
-        return result;
+        return infix_exp;
     }
 
     string convert_postfix_exp2(const string &infix) {
@@ -942,7 +940,7 @@ int main() {
     // . 在构建nfa状态转换图时，直接视作普通字符
     // 实现1：NFA-DFA-minimized DFA
     cout << "实现1：NFA-DFA-minimized DFA：" << endl;
-    string re1 = "(a+b)+";
+    string re1 = "(a+b(cd)+)+";
     test(re1);
     // 实现2：判断两个正则表达式是否等价
 //    cout << "实现2：判断两个正则表达式是否等价：" << endl;
