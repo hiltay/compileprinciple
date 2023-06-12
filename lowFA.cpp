@@ -125,10 +125,12 @@ private:
         return infix_exp;
     }
 
-    string convert_postfix_exp2(const string &infix) {
+
+    string process_infix_expression(const string &infix) {
         // 第一步，将扩展的正则表达式替换为标准正则表达式，这里只对 + 和 ? 做处理
         string infix_std = std_infix(infix);
         // 第二步，将标准正则表达式作为中缀输入，转换为后缀表达式
+        string postfix_exp = convert_postfix_exp(infix_std);
     }
 
     string convert_postfix_exp(const string &infix) {
@@ -213,34 +215,7 @@ private:
                 // 删掉栈中的(
                 operators.pop();
             } else if (is_special_character(cur_elem)) {
-                if (cur_elem == '+') {
-                    // 对于+，有两种情况：
-                    if (is_character(last_char)) {
-                        // 如果上一个字符是普通字符
-                        // 即：.+ a+ b+ c+ 这种情况
-                        // 我们将其看做..* aa* bb* cc*，因此，我们的做法是
-                        // 1、将当前的字符+替换为*
-                        infix_exp[i] = '*';
-                        // 2、将当前索引回退到上一个字符之前
-                        // 上一个字符此时不变即可
-                        i -= 2;
-                        continue;
-                    } else if (last_char == ')') {
-                        // 如果上一个字符是右括号，则我们需要将指针回退到这个右括号对应匹配的左括号之前
-                        // 由于)后面紧接着就是+，所以可以确定刚才从operators出栈的就是最近的括号
-                        // 将当前的字符+替换为*
-                        infix_exp[i] = '*';
-                        // 因此可以直接将索引回退到最近的左括号之前
-                        // 获取左括号的索引位置减1
-                        i = parenthesis_index[i - 1] - 1;
-                        // 同时将上一个字符重新设置
-                        last_char = ')';
-                        continue;
-                    }
-
-                }
-
-                // 特殊运算符.*?|
+                // 特殊运算符.*?|+
                 while (!operators.empty() && priority(cur_elem) <= priority(operators.top())) {
                     // 比较当前字符和运算符栈顶字符的优先级，如果当前字符的优先级小
                     // 则取出栈顶的运算符，添加到输出中
@@ -412,7 +387,7 @@ public:
 
     FA *construct(const string &re) {
         // 得到后缀表达式
-        string postfix_exp = convert_postfix_exp2(re);
+        string postfix_exp = process_infix_expression(re);
 //        postfix_exp = "ab|cd||";
         // 确定最大状态数，以分配邻接表内存
         auto max_state_num = postfix_exp.size() * 2;
